@@ -1,94 +1,203 @@
+// src/main.cpp
 #include "main.h"
+#include <cmath>
+using namespace pros;
 
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-	static bool pressed = false;
-	pressed = !pressed;
-	if (pressed) {
-		pros::lcd::set_text(2, "I was pressed!");
-	} else {
-		pros::lcd::clear_line(2);
-	}
+// ==================== CONFIG (EDIT THESE) ====================
+constexpr int8_t L_FRONT_PORT = -20;
+constexpr int8_t L_BACK_PORT  = -19;
+constexpr int8_t R_FRONT_PORT = 10;
+constexpr int8_t R_BACK_PORT  = 9;
+
+constexpr int8_t INTAKE_L_PORT = 11;
+constexpr int8_t INTAKE_R_PORT = 2;
+
+constexpr bool INTAKE_L_REV = false; // set so BOTH pull IN on Intake
+constexpr bool INTAKE_R_REV = true;
+
+// Drive style
+constexpr bool kArcadeDrive = true;
+
+// Shaping
+constexpr int    kDeadband = 5;
+constexpr double kExpo     = 1.6;
+constexpr int    kMaxCmd   = 127;
+
+// Loop rate
+constexpr int kDriveLoopMs  = 10;
+constexpr int kIntakeLoopMs = 10;
+
+// Intake powers
+constexpr int kIntakeCmd = 127;
+constexpr int kHoldCmd   = 18;
+
+// Buttons
+constexpr auto BTN_BRAKE_HOLD  = E_CONTROLLER_DIGITAL_A;
+constexpr auto BTN_BRAKE_COAST = E_CONTROLLER_DIGITAL_B;
+constexpr auto BTN_INTAKE      = E_CONTROLLER_DIGITAL_R1;
+constexpr auto BTN_OUTTAKE     = E_CONTROLLER_DIGITAL_R2;
+constexpr auto BTN_HOLD        = E_CONTROLLER_DIGITAL_L1;
+
+// ==================== DEVICES ====================
+Controller master(E_CONTROLLER_MASTER);
+// Drive train motor objects
+MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+
+// Intake motors
+Motor leftIntakeMotor(INTAKE_L_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor rightIntakeMotor(INTAKE_R_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+
+// ==================== HELPERS ====================
+static inline int clamp127(int v) { return std::max(-127, std::min(127, v)); }
+
+static inline int applyDeadband(int v, int db = kDeadband) {
+  return (std::abs(v) < db) ? 0 : v;
 }
 
-/**
- * Runs initialization code. This occurs as soon as the program is started.
- *
- * All other competition modes are blocked by initialize; it is recommended
- * to keep execution time for this mode under a few seconds.
- */
+static inline int expoCmd(int v, double expo = kExpo) {
+  const double s = (double)v / 127.0;
+  const double shaped = std::copysign(std::pow(std::abs(s), expo), s);
+  return clamp127((int)std::round(shaped * std::min(127, kMaxCmd)));
+}
+
+static inline void driveTank(int left, int right) {
+  leftDrive.move(clamp127(left));
+  rightDrive.move(clamp127(right));
+}
+
+static inline void driveArcade(int throttle, int turn) {
+  int l = clamp127(throttle + turn);
+  int r = clamp127(throttle - turn);
+  driveTank(l, r);
+}
+
+// ==================== INTAKE SUBSYSTEM ====================
+class Intake {
+public:
+  enum class Mode { Off, Hold, In, Out };
+
+  Intake(Motor& L, Motor& R) : mL(L), mR(R) {}
+
+  void set_mode(Mode m) {
+    mode_ = m;
+    switch (mode_) {
+      case Mode::Off:  target_ = 0;            break;
+      case Mode::Hold: target_ = kHoldCmd;     break;
+      case Mode::In:   target_ =  kIntakeCmd;  break;
+      case Mode::Out:  target_ = -kIntakeCmd;  break;
+    }
+  }
+
+  Mode mode() const { return mode_; }
+
+  // Call from a background task
+  void update() {
+    // ramp toward target
+    const int step = 6;
+    int d = target_ - output_;
+    if (std::abs(d) <= step) output_ = target_;
+    else output_ += (d > 0 ? step : -step);
+
+    mL.move(output_);
+    mR.move(output_);
+  }
+
+private:
+  Motor& mL;
+  Motor& mR;
+  Mode mode_  = Mode::Off;
+  int  target_ = 0;
+  int  output_ = 0;
+};
+
+Intake intake(leftIntakeMotor, rightIntakeMotor);
+
+void intakeTaskFn(void*) {
+  leftIntakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  rightIntakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  while (true) { intake.update(); delay(kIntakeLoopMs); }
+}
+Task intakeTask(intakeTaskFn, nullptr, "intake_task");
+
+// ==================== PROS LIFECYCLE ====================
 void initialize() {
-	pros::lcd::initialize();
-	pros::lcd::set_text(1, "Hello PROS User!");
+  lcd::initialize();
+  lcd::set_text(1, "Drive+Intake Ready");
 
-	pros::lcd::register_btn1_cb(on_center_button);
+  leftDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  rightDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
+
+  // Zero encoders (optional)
+  leftDrive.tare_position_all();
+  rightDrive.tare_position_all();
+  leftIntakeMotor.tare_position();
+  rightIntakeMotor.tare_position();
 }
 
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
 void disabled() {}
-
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
 void competition_initialize() {}
 
-/**
- * Runs the user autonomous code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the autonomous
- * mode. Alternatively, this function may be called in initialize or opcontrol
- * for non-competition testing purposes.
- *
- * If the robot is disabled or communications is lost, the autonomous task
- * will be stopped. Re-enabling the robot will restart the task, not re-start it
- * from where it left off.
- */
-void autonomous() {}
+// --------- Autonomous (example) ---------
+void autonomous() {
+  // Intake in, drive forward, then hold
+  intake.set_mode(Intake::Mode::In);
+  driveTank(80, 80);
+  delay(1000);
 
-/**
- * Runs the operator control code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the operator
- * control mode.
- *
- * If no competition control is connected, this function will run immediately
- * following initialize().
- *
- * If the robot is disabled or communications is lost, the
- * operator control task will be stopped. Re-enabling the robot will restart the
- * task, not resume it from where it left off.
- */
+  driveTank(0, 0);
+  intake.set_mode(Intake::Mode::Hold);
+  delay(200);
+
+  // small turn example
+  driveTank(60, -60);
+  delay(300);
+  driveTank(0, 0);
+}
+
+// --------- Driver Control ---------
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
-	pros::MotorGroup left_mg({1, -2, 3});    // Creates a motor group with forwards ports 1 & 3 and reversed port 2
-	pros::MotorGroup right_mg({-4, 5, -6});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
+  while (true) {
+    // Brake mode quick toggle
+    if (master.get_digital_new_press(BTN_BRAKE_HOLD)) {
+      leftDrive.set_brake_mode_all(MotorBrake::hold);
+      rightDrive.set_brake_mode_all(MotorBrake::hold);
+      lcd::set_text(2, "Drive Brake: HOLD");
+    }
+    if (master.get_digital_new_press(BTN_BRAKE_COAST)) {
+      leftDrive.set_brake_mode_all(MotorBrake::coast);
+      rightDrive.set_brake_mode_all(MotorBrake::coast);
+      lcd::set_text(2, "Drive Brake: COAST");
+    }
 
+    // Intake modes
+    if (master.get_digital(BTN_INTAKE)) {
+      intake.set_mode(Intake::Mode::In);
+      lcd::set_text(2, "Intake Mode: In");
+    } else if (master.get_digital(BTN_OUTTAKE)) {
+      intake.set_mode(Intake::Mode::Out);
+      lcd::set_text(2, "Intake Mode: Out");
+    } else if (master.get_digital(BTN_HOLD)) {
+      intake.set_mode(Intake::Mode::Hold);
+      lcd::set_text(2, "intake Mode: HOLD");
+    } else {
+      intake.set_mode(Intake::Mode::Off);
+      lcd::set_text(2, "Intake Mode: OFF");
+    }
+      
 
-	while (true) {
-		pros::lcd::print(0, "%d %d %d", (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-		                 (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-		                 (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >> 0);  // Prints status of the emulated screen LCDs
+    // Drive input
+    int LY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+    int RY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
+    int LX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
 
-		// Arcade control scheme
-		int dir = master.get_analog(ANALOG_LEFT_Y);    // Gets amount forward/backward from left joystick
-		int turn = master.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
-		left_mg.move(dir - turn);                      // Sets left motor voltage
-		right_mg.move(dir + turn);                     // Sets right motor voltage
-		pros::delay(20);                               // Run for 20 ms then update
-	}
+    LY = expoCmd(applyDeadband(LY));
+    RY = expoCmd(applyDeadband(RY));
+    LX = expoCmd(applyDeadband(LX));
+
+    if (kArcadeDrive) driveArcade(LY, LX);
+    else              driveTank(LY, RY);
+
+    delay(kDriveLoopMs);
+  }
 }
