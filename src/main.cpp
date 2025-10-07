@@ -9,13 +9,21 @@ constexpr int8_t L_BACK_PORT  = -19;
 constexpr int8_t R_FRONT_PORT = 10;
 constexpr int8_t R_BACK_PORT  = 9;
 
-constexpr int8_t INTAKE_L_PORT = 11;
-constexpr int8_t INTAKE_R_PORT = 2;
+// Odometry ports
+constexpr int8_t IMU_PORT = 16;
+constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
+// constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
 
+// Intake ports
+constexpr int8_t OUTER_TOWER_MIDDLE_INTAKE_PORT = 12;
+constexpr int8_t INNER_TOWER_MIDDLE_TOP_INTAKE_PORT = 11;
+constexpr int8_t INNER_TOWER_LOWER_INTAKE_PORT = 13;
+
+// TODO - The below is just a place holder - intake mech will need to be rewritten
 constexpr bool INTAKE_L_REV = false; // set so BOTH pull IN on Intake
 constexpr bool INTAKE_R_REV = true;
 
-// Drive style
+// TODO - Drive style - Maybe we can make this a toggle later on
 constexpr bool kArcadeDrive = true;
 
 // Shaping
@@ -45,8 +53,9 @@ MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT}, v5::MotorGears::green, v5::Mot
 MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
 
 // Intake motors
-Motor leftIntakeMotor(INTAKE_L_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
-Motor rightIntakeMotor(INTAKE_R_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor innerTowerLowerMotor(INNER_TOWER_LOWER_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 
 // ==================== HELPERS ====================
 static inline int clamp127(int v) { return std::max(-127, std::min(127, v)); }
@@ -73,11 +82,11 @@ static inline void driveArcade(int throttle, int turn) {
 }
 
 // ==================== INTAKE SUBSYSTEM ====================
-class Intake {
+/*class Intake {
 public:
   enum class Mode { Off, Hold, In, Out };
 
-  Intake(Motor& L, Motor& R) : mL(L), mR(R) {}
+  Intake(Motor& L1, Motor& L2, Motor& R1) : mL1(L1), mL2(L2), mR1(R1) {}
 
   void set_mode(Mode m) {
     mode_ = m;
@@ -99,27 +108,31 @@ public:
     if (std::abs(d) <= step) output_ = target_;
     else output_ += (d > 0 ? step : -step);
 
-    mL.move(output_);
-    mR.move(output_);
+    mL1.move(output_);
+    mL2.move(output_);
+    mR1.move(output_);
   }
 
 private:
-  Motor& mL;
-  Motor& mR;
+  Motor& mL1;
+  Motor& mL2;
+  Motor& mR1;
   Mode mode_  = Mode::Off;
   int  target_ = 0;
   int  output_ = 0;
 };
 
-Intake intake(leftIntakeMotor, rightIntakeMotor);
+Intake intake(outerTowerMiddleMotor, innerTowerMiddleTopMotor, innerTowerLowerMotor);
 
 void intakeTaskFn(void*) {
-  leftIntakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
-  rightIntakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  //leftIntakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  outerTowerMiddleMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  innerTowerMiddleTopMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  innerTowerLowerMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   while (true) { intake.update(); delay(kIntakeLoopMs); }
 }
 Task intakeTask(intakeTaskFn, nullptr, "intake_task");
-
+*/
 // ==================== PROS LIFECYCLE ====================
 void initialize() {
   lcd::initialize();
@@ -131,8 +144,9 @@ void initialize() {
   // Zero encoders (optional)
   leftDrive.tare_position_all();
   rightDrive.tare_position_all();
-  leftIntakeMotor.tare_position();
-  rightIntakeMotor.tare_position();
+  outerTowerMiddleMotor.tare_position();
+  innerTowerMiddleTopMotor.tare_position();
+  innerTowerLowerMotor.tare_position();
 }
 
 void disabled() {}
@@ -141,22 +155,25 @@ void competition_initialize() {}
 // --------- Autonomous (example) ---------
 void autonomous() {
   // Intake in, drive forward, then hold
-  intake.set_mode(Intake::Mode::In);
+  //intake.set_mode(Intake::Mode::In);
   driveTank(80, 80);
   delay(1000);
-
   driveTank(0, 0);
-  intake.set_mode(Intake::Mode::Hold);
   delay(200);
-
+/*
   // small turn example
   driveTank(60, -60);
   delay(300);
   driveTank(0, 0);
+  */
 }
 
 // --------- Driver Control ---------
 void opcontrol() {
+  bool intakeL1Toggle = false;
+  bool intakeL2Toggle = false;
+  bool intakeR1Toggle = false;
+
   while (true) {
     // Brake mode quick toggle
     if (master.get_digital_new_press(BTN_BRAKE_HOLD)) {
@@ -169,22 +186,38 @@ void opcontrol() {
       rightDrive.set_brake_mode_all(MotorBrake::coast);
       lcd::set_text(2, "Drive Brake: COAST");
     }
-
+    
     // Intake modes
-    if (master.get_digital(BTN_INTAKE)) {
-      intake.set_mode(Intake::Mode::In);
-      lcd::set_text(2, "Intake Mode: In");
-    } else if (master.get_digital(BTN_OUTTAKE)) {
-      intake.set_mode(Intake::Mode::Out);
-      lcd::set_text(2, "Intake Mode: Out");
-    } else if (master.get_digital(BTN_HOLD)) {
-      intake.set_mode(Intake::Mode::Hold);
-      lcd::set_text(2, "intake Mode: HOLD");
-    } else {
-      intake.set_mode(Intake::Mode::Off);
-      lcd::set_text(2, "Intake Mode: OFF");
+    if (master.get_digital_new_press(BTN_INTAKE)) {
+      intakeL1Toggle = !intakeL1Toggle;
+      if (intakeL1Toggle) {
+        innerTowerLowerMotor.move(127);
+      } else {
+        innerTowerLowerMotor.move(0);
+      }
     }
-      
+
+    if (master.get_digital_new_press(BTN_OUTTAKE)) {
+      intakeL2Toggle = !intakeL2Toggle;
+      if (intakeL2Toggle) {
+        innerTowerMiddleTopMotor.move(127);
+      } else {
+        innerTowerMiddleTopMotor.move(0);
+      }
+    }
+    
+    if (master.get_digital_new_press(BTN_HOLD)) {
+      intakeR1Toggle = !intakeR1Toggle;
+      if (intakeR1Toggle) {
+        outerTowerMiddleMotor.move(-127);
+      } else {
+        outerTowerMiddleMotor.move(0);
+      }
+    }
+    // Optional quick telemetry
+    lcd::set_text(2, "innerTowerLowerMotor:" + std::string(intakeL1Toggle ? "ON " : "OFF") +
+                     "innerTowerMiddleTopMotor:" + std::string(intakeL2Toggle ? "ON " : "OFF") +
+                     "outerTowerMiddleMotor:" + std::string(intakeR1Toggle ? "ON" : "OFF"));
 
     // Drive input
     int LY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
