@@ -15,14 +15,13 @@ constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
 // constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
 
 // Intake ports
-constexpr int8_t OUTER_TOWER_MIDDLE_INTAKE_PORT = 12;
-constexpr int8_t INNER_TOWER_MIDDLE_TOP_INTAKE_PORT = 11;
+//Clockwise Direction
+constexpr int8_t OUTER_TOWER_MIDDLE_INTAKE_PORT = -12;
+constexpr int8_t INNER_TOWER_MIDDLE_TOP_INTAKE_PORT = -11;
 constexpr int8_t INNER_TOWER_LOWER_INTAKE_PORT = 13;
 
 // Outtake ports - todo
-
-constexpr bool INTAKE_L_REV = false; // set so BOTH pull IN on Intake
-constexpr bool INTAKE_R_REV = true;
+constexpr int8_t OUTTAKE_PORT = 14;
 
 // Drive style
 constexpr bool kArcadeDrive = true;
@@ -112,13 +111,13 @@ public:
         break;
       case Mode::InTopStorage:
         m_outerTowerMiddleMotor.move(127);
-        m_innerTowerLowerMotor.move(127);
-        m_innerTowerMiddleTopMotor.move(127);
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(-127);
         break;
       case Mode::InLowStorage:
         m_outerTowerMiddleMotor.move(127);
-        m_innerTowerLowerMotor.move(127);
-        m_innerTowerMiddleTopMotor.move(-127); // clockwise 
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(127);  
         break;
       case Mode::OutMiddleGoal:
       case Mode::OutLowGoal:
