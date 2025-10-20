@@ -14,11 +14,11 @@ constexpr int8_t IMU_PORT = 16;
 constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
 // constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
 
-// Intake ports
+// InOutMechanism ports
 // Clockwise Direction
-constexpr int8_t OUTER_TOWER_MIDDLE_INTAKE_PORT      = -12;
-constexpr int8_t INNER_TOWER_MIDDLE_TOP_INTAKE_PORT  = -11;
-constexpr int8_t INNER_TOWER_LOWER_INTAKE_PORT       = 13;
+constexpr int8_t OUTER_TOWER_MIDDLE_InOutMechanism_PORT      = -12;
+constexpr int8_t INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT  = -11;
+constexpr int8_t INNER_TOWER_LOWER_InOutMechanism_PORT       = 13;
 
 // Outtake ports - todo
 constexpr int8_t TOP_OUTTAKE_PORT = 14;
@@ -36,10 +36,10 @@ constexpr int    kMaxCmd    = 127;
 
 // Loop rate
 constexpr int kDriveLoopMs  = 10;
-constexpr int kIntakeLoopMs = 10;
+constexpr int kInOutMechanismLoopMs = 10;
 
-// Intake powers
-constexpr int kIntakeCmd = 127;
+// InOutMechanism powers
+constexpr int kInOutMechanismCmd = 127;
 constexpr int kHoldCmd   = 18;
 
 // Buttons
@@ -49,7 +49,7 @@ constexpr auto BTN_INTOPSTORAGE = E_CONTROLLER_DIGITAL_R1;
 constexpr auto BTN_INLOWSTORAGE = E_CONTROLLER_DIGITAL_R2;
 constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L1;
 constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_L2;
-constexpr auto BTN_INTAKE_OFF   = E_CONTROLLER_DIGITAL_X;
+constexpr auto BTN_InOutMechanism_OFF   = E_CONTROLLER_DIGITAL_X;
 constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_Y;
 
 // Pneumatic toggle button
@@ -62,10 +62,10 @@ Controller master(E_CONTROLLER_MASTER);
 MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
 MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
 
-// Intake motors
-Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
-Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
-Motor innerTowerLowerMotor(INNER_TOWER_LOWER_INTAKE_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+// InOutMechanism motors
+Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
+Motor innerTowerLowerMotor(INNER_TOWER_LOWER_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 
 
 // Outtake Motor
@@ -99,12 +99,14 @@ static inline void driveArcade(int throttle, int turn) {
   driveTank(l, r);
 }
 
-// ==================== INTAKE SUBSYSTEM ====================
-class Intake {
+
+// InOutMechanism - This class handles all operations for intake and outtake from the robot
+
+class InOutMechanism {
 public:
   enum class Mode { Off, InTopStorage, InLowStorage, OutMiddleGoal, OutLowGoal, OutTopGoal};
 
-  Intake(Motor& L1, Motor& L2, Motor& R1, Motor& T1)
+  InOutMechanism(Motor& L1, Motor& L2, Motor& R1, Motor& T1)
   : m_outerTowerMiddleMotor(L1), m_innerTowerMiddleTopMotor(L2), m_innerTowerLowerMotor(R1),m_topGoalMotor(T1) {}
 
   void set_mode(Mode m) { mode_ = m; }
@@ -113,6 +115,7 @@ public:
   // Call from a background task
   void update() {
     // TODO - ramp speeds instead of instant full voltage
+    // TODO - Should we have the motors on 'hold' as opposed to on 'coast' to ensure that objects remain in place?
     switch (mode_) {
       case Mode::Off:
         m_outerTowerMiddleMotor.move(0);
@@ -151,16 +154,16 @@ private:
   Mode mode_ = Mode::Off;
 };
 
-Intake intake(outerTowerMiddleMotor, innerTowerMiddleTopMotor, innerTowerLowerMotor, topOutTakeMotor);
+InOutMechanism inOutMech(outerTowerMiddleMotor, innerTowerMiddleTopMotor, innerTowerLowerMotor, topOutTakeMotor);
 
-void intakeTaskFn(void*) {
+void InOutMechanismTaskFn(void*) {
   outerTowerMiddleMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerMiddleTopMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerLowerMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   topOutTakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
-  while (true) { intake.update(); delay(kIntakeLoopMs); }
+  while (true) { inOutMech.update(); delay(kInOutMechanismLoopMs); }
 }
-Task intakeTask(intakeTaskFn, nullptr, "intake_task");
+Task InOutMechanismTask(InOutMechanismTaskFn, nullptr, "InOutMechanism_task");
 
 // ==================== PROS LIFECYCLE ====================
 void initialize() {
@@ -187,13 +190,13 @@ void competition_initialize() {}
 
 // --------- Autonomous (example) ---------
 void autonomous() {
-  // Intake in, drive forward, then hold
-  intake.set_mode(Intake::Mode::InLowStorage);
+  // InOutMechanism in, drive forward, then hold
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
   driveTank(80, 80);
   delay(1000);
 
   driveTank(0, 0);
-  intake.set_mode(Intake::Mode::Off);
+  inOutMech.set_mode(InOutMechanism::Mode::Off);
   delay(200);
 
   // small turn example
@@ -224,31 +227,31 @@ void opcontrol() {
       lcd::set_text(3, piston_extended ? "Piston: EXTENDED" : "Piston: RETRACTED");
     }
 
-    // Intake Mode selection
+    // InOutMechanism Mode selection
     if (master.get_digital_new_press(BTN_INTOPSTORAGE)) {
-      intake.set_mode(Intake::Mode::InTopStorage);
-      lcd::set_text(2, "Intake Mode: InTopStorage");
+      inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+      lcd::set_text(2, "InOutMechanism Mode: InTopStorage");
     }
     if (master.get_digital_new_press(BTN_INLOWSTORAGE)) {
-      intake.set_mode(Intake::Mode::InLowStorage);
-      lcd::set_text(2, "Intake Mode: InLowStorage");
+      inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+      lcd::set_text(2, "InOutMechanism Mode: InLowStorage");
     }
     if (master.get_digital_new_press(BTN_OUTMIDGOAL)) {
-      intake.set_mode(Intake::Mode::OutMiddleGoal);
-      lcd::set_text(2, "Intake Mode: OutMiddleGoal");
+      inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
+      lcd::set_text(2, "InOutMechanism Mode: OutMiddleGoal");
     }
     if (master.get_digital_new_press(BTN_OUTLOWGOAL)) {
-      intake.set_mode(Intake::Mode::OutLowGoal);
-      lcd::set_text(2, "Intake Mode: OutLowGoal");
+      inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
+      lcd::set_text(2, "InOutMechanism Mode: OutLowGoal");
     }
-    if (master.get_digital_new_press(BTN_INTAKE_OFF)) {
-      intake.set_mode(Intake::Mode::Off);
-      lcd::set_text(2, "Intake Mode: Off");
+    if (master.get_digital_new_press(BTN_InOutMechanism_OFF)) {
+      inOutMech.set_mode(InOutMechanism::Mode::Off);
+      lcd::set_text(2, "InOutMechanism Mode: Off");
     }
     // No code defined yet for outtake
     if (master.get_digital_new_press(BTN_TOPOUTTAKE)) {
-      intake.set_mode(Intake::Mode::OutTopGoal);
-      lcd::set_text(2, "Intake Mode: OutTopGoal");
+      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+      lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
     }
 
     // Drive input
