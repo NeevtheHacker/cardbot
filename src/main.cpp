@@ -4,6 +4,11 @@
 using namespace pros;
 
 // ==================== CONFIG (EDIT THESE) ====================
+
+// The ports follow the notion that pressing forward button on the brain, if 
+// the motor moves clockwise then its positive.clockwise direction is
+// considered positive direction for that motor.
+
 constexpr int8_t L_FRONT_PORT = -20;
 constexpr int8_t L_BACK_PORT  = -19;
 constexpr int8_t R_FRONT_PORT = 7;
@@ -15,7 +20,8 @@ constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
 // constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
 
 // InOutMechanism ports
-// Clockwise Direction
+
+// Intake ports
 constexpr int8_t OUTER_TOWER_MIDDLE_InOutMechanism_PORT      = -12;
 constexpr int8_t INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT  = -11;
 constexpr int8_t INNER_TOWER_LOWER_InOutMechanism_PORT       = 13;
@@ -42,7 +48,7 @@ constexpr int kInOutMechanismLoopMs = 10;
 constexpr int kInOutMechanismCmd = 127;
 constexpr int kHoldCmd   = 18;
 
-// Buttons
+// Controller button mapping
 constexpr auto BTN_BRAKE_HOLD   = E_CONTROLLER_DIGITAL_A;
 constexpr auto BTN_BRAKE_COAST  = E_CONTROLLER_DIGITAL_B;
 constexpr auto BTN_INTOPSTORAGE = E_CONTROLLER_DIGITAL_R1;
@@ -66,8 +72,6 @@ MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::Mo
 Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerLowerMotor(INNER_TOWER_LOWER_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
-
-
 // Outtake Motor
 Motor topOutTakeMotor(TOP_OUTTAKE_PORT, pros::v5::MotorGears::blue, pros::v5::MotorUnits::rotations);
 
@@ -99,9 +103,45 @@ static inline void driveArcade(int throttle, int turn) {
   driveTank(l, r);
 }
 
+static inline void arcadeToTank(int throttle, int turn, int &l, int &r) {
+  l = clamp127(throttle + turn);
+  r = clamp127(throttle - turn);
+}
+
+// ===== Smooth drive tuning =====
+constexpr int kAccelSlewPerLoop = 6;   // units per 10ms (≈0.6 s 0→127)
+constexpr int kDecelSlewPerLoop = 10;  // allow slightly faster braking
+constexpr double kJoyEMA = 0.20;       // joystick low-pass (0..1), higher = snappier
+constexpr double kTurnAtSpeedScale = 0.6; // reduce turn when moving fast (0..1)
+
+// Simple joystick exponential moving average (EMA) filter
+struct EMA {
+  double a;  // smoothing factor (0..1), higher = snappier 
+  double y{0.0};
+  explicit EMA(double alpha): a(alpha) {}
+  int step(int x) { y = a * x + (1.0 - a) * y; return (int)std::round(y); }
+};
+
+// Per-side slew limiter
+struct Slew {
+  int up, down;   // max step per loop when increasing/decreasing
+  int y{0};
+  Slew(int up_step, int down_step): up(up_step), down(down_step) {}
+  int step(int target) {
+    int diff = target - y;
+    int lim  = (diff > 0) ? up : down;
+    if (std::abs(diff) > lim) y += (diff > 0 ? lim : -lim);
+    else y = target;
+    return y;
+  }
+};
+
+EMA emaY(kJoyEMA), emaX(kJoyEMA);
+Slew leftSlew(kAccelSlewPerLoop, kDecelSlewPerLoop);
+Slew rightSlew(kAccelSlewPerLoop, kDecelSlewPerLoop);
+
 
 // InOutMechanism - This class handles all operations for intake and outtake from the robot
-
 class InOutMechanism {
 public:
   enum class Mode { Off, InTopStorage, InLowStorage, OutMiddleGoal, OutLowGoal, OutTopGoal};
@@ -253,7 +293,7 @@ void opcontrol() {
       inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
     }
-
+/*
     // Drive input
     int LY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
     int RY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
@@ -265,7 +305,29 @@ void opcontrol() {
 
     if (kArcadeDrive) driveArcade(LY, LX);
     else              driveTank(LY, RY);
+*/
+    // ema + slew limit version:
 
+    // -------- Smooth Drive Input --------
+    int rawLY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+    int rawLX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
+
+    // Deadband → expo → EMA (order matters; EMA last for smoothness)
+    int LY = expoCmd(applyDeadband(rawLY));
+    int LX = expoCmd(applyDeadband(rawLX));
+    LY = emaY.step(LY);
+    LX = emaX.step(LX);
+
+    // Curvature: reduce turn as forward speed rises (keeps high-speed stable)
+    double speedFrac = std::min(1.0, std::abs(LY) / 127.0);
+    int scaledTurn = (int)std::round(LX * (1.0 - kTurnAtSpeedScale * speedFrac));
+
+    // Mix to tank and apply per-side slew
+    int l_tgt, r_tgt; arcadeToTank(LY, scaledTurn, l_tgt, r_tgt);
+    int l_cmd = leftSlew.step(l_tgt);
+    int r_cmd = rightSlew.step(r_tgt);
+
+    driveTank(l_cmd, r_cmd);
     delay(kDriveLoopMs);
   }
 }
