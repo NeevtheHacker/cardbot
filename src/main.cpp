@@ -1,6 +1,7 @@
 // src/main.cpp
 #include "main.h"
 #include <cmath>
+#include "lemlib/api.hpp" // IWYU pragma: keep
 using namespace pros;
 
 // ==================== CONFIG (EDIT THESE) ====================
@@ -28,6 +29,10 @@ constexpr char PISTON_PORT = 'H';  // Change to your 3-wire port (A..H)
 
 // Drive style
 constexpr bool kArcadeDrive = true;
+
+// Lemlib constants
+constexpr int8_t TRACK_WIDTH  = 12.25; // inches
+constexpr int8_t WHEEL_BASE   = 8; // inches
 
 // Shaping
 constexpr int    kDeadband = 5;
@@ -165,10 +170,74 @@ void InOutMechanismTaskFn(void*) {
 }
 Task InOutMechanismTask(InOutMechanismTaskFn, nullptr, "InOutMechanism_task");
 
+// Lemlib setup
+
+// drivetrain settings
+lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
+                              &rightDrive, // right motor group
+                              TRACK_WIDTH,
+                              lemlib::Omniwheel::NEW_4, // using new 4" omnis
+                              400, // drivetrain rpm is 360
+                              2 // horizontal drift is 2 (for now)
+);
+
+// odometry settings
+
+pros::Imu imu(IMU_PORT);
+lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, set to null
+                            nullptr, // vertical tracking wheel 2, set to nullptr as we are using IMEs
+                            nullptr, // horizontal tracking wheel 1
+                            nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
+                            &imu // inertial sensor
+);
+
+// lateral PID controller
+lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              3, // derivative gain (kD)
+                                              3, // anti windup
+                                              1, // small error range, in inches
+                                              100, // small error range timeout, in milliseconds
+                                              3, // large error range, in inches
+                                              500, // large error range timeout, in milliseconds
+                                              20 // maximum acceleration (slew)
+);
+
+// angular PID controller
+lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              10, // derivative gain (kD)
+                                              3, // anti windup
+                                              1, // small error range, in degrees
+                                              100, // small error range timeout, in milliseconds
+                                              3, // large error range, in degrees
+                                              500, // large error range timeout, in milliseconds
+                                              0 // maximum acceleration (slew)
+);
+
+// create the chassis
+lemlib::Chassis chassis(drivetrain, // drivetrain settings
+                        lateral_controller, // lateral PID settings
+                        angular_controller, // angular PID settings
+                        sensors // odometry sensors
+);
+
 // ==================== PROS LIFECYCLE ====================
 void initialize() {
   lcd::initialize();
   lcd::set_text(1, "Drive+Intake+Outtake+Piston Ready");
+  chassis.calibrate(); // calibrate sensors
+    // print position to brain screen
+    pros::Task screen_task([&]() {
+        while (true) {
+            // print robot location to the brain screen
+            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            // delay to save resources
+            pros::delay(20);
+        }
+    });
 
   leftDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
   rightDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
@@ -255,17 +324,26 @@ void opcontrol() {
     }
 
     // Drive input
-    int LY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
-    int RY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
-    int LX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
-
+    int leftY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
+    int leftX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
+    int rightY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
+    int rightX = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
+    
+/*
     LY = expoCmd(applyDeadband(LY));
     RY = expoCmd(applyDeadband(RY));
     LX = expoCmd(applyDeadband(LX));
 
     if (kArcadeDrive) driveArcade(LY, LX);
     else              driveTank(LY, RY);
-
+*/
+  // Lemlib options
+  // move the robot
+    chassis.arcade(leftY, leftX); // Single Stick Arcade
+    // chassis.arcade(leftY, rightX); // Double Stick Arcade
+    // chassis.arcade(leftY, rightX); // Double Stick Arcade
+    // chassis.arcade(leftY, leftX, false, 0.75); // prioritize steering slightly
+    // chassis.curvature(leftY, leftX); // Single stick curvature
     delay(kDriveLoopMs);
   }
 }
