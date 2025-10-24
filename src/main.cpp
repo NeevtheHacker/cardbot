@@ -39,6 +39,8 @@ constexpr bool kArcadeDrive = true;
 constexpr int    kDeadband = 5;
 constexpr double kExpo      = 1.6;
 constexpr int    kMaxCmd    = 127;
+constexpr int    leftDriveTrainBias    = 1;
+constexpr int    rightDriveTrainBias   = 1;
 
 // Loop rate
 constexpr int kDriveLoopMs  = 10;
@@ -53,10 +55,11 @@ constexpr auto BTN_BRAKE_HOLD   = E_CONTROLLER_DIGITAL_A;
 constexpr auto BTN_BRAKE_COAST  = E_CONTROLLER_DIGITAL_B;
 constexpr auto BTN_INTOPSTORAGE = E_CONTROLLER_DIGITAL_R1;
 constexpr auto BTN_INLOWSTORAGE = E_CONTROLLER_DIGITAL_R2;
-constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L1;
-constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_L2;
+constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_L1;
+constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L2;
+constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_Y;
 constexpr auto BTN_InOutMechanism_OFF   = E_CONTROLLER_DIGITAL_X;
-constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_Y;
+
 
 // Pneumatic toggle button
 constexpr auto BTN_PISTON_TOGGLE = E_CONTROLLER_DIGITAL_RIGHT;
@@ -92,22 +95,6 @@ static inline int expoCmd(int v, double expo = kExpo) {
   return clamp127((int)std::round(shaped * std::min(127, kMaxCmd)));
 }
 
-static inline void driveTank(int left, int right) {
-  leftDrive.move(clamp127(left));
-  rightDrive.move(clamp127(right));
-}
-
-static inline void driveArcade(int throttle, int turn) {
-  int l = clamp127(throttle + turn);
-  int r = clamp127(throttle - turn);
-  driveTank(l, r);
-}
-
-static inline void arcadeToTank(int throttle, int turn, int &l, int &r) {
-  l = clamp127(throttle + turn);
-  r = clamp127(throttle - turn);
-}
-
 // ===== Smooth drive tuning =====
 constexpr int kAccelSlewPerLoop = 6;   // units per 10ms (≈0.6 s 0→127)
 constexpr int kDecelSlewPerLoop = 10;  // allow slightly faster braking
@@ -136,6 +123,17 @@ struct Slew {
   }
 };
 
+static inline void driveTank(int left, int right) {
+  leftDrive.move(leftDriveTrainBias * clamp127(left));
+  rightDrive.move(rightDriveTrainBias * clamp127(right));
+}
+
+static inline void driveArcade(int throttle, int turn, Slew& leftSlew, Slew& rightSlew) {
+  int l = leftSlew.step(clamp127(throttle + turn));
+  int r = rightSlew.step(clamp127(throttle - turn));
+  driveTank(l, r);
+}
+
 EMA emaY(kJoyEMA), emaX(kJoyEMA);
 Slew leftSlew(kAccelSlewPerLoop, kDecelSlewPerLoop);
 Slew rightSlew(kAccelSlewPerLoop, kDecelSlewPerLoop);
@@ -144,7 +142,18 @@ Slew rightSlew(kAccelSlewPerLoop, kDecelSlewPerLoop);
 // InOutMechanism - This class handles all operations for intake and outtake from the robot
 class InOutMechanism {
 public:
-  enum class Mode { Off, InTopStorage, InLowStorage, OutMiddleGoal, OutLowGoal, OutTopGoal};
+  enum class Mode { Off, 
+                    InTopStorage,
+                    InTopStorageOff,
+                    InLowStorage,
+                    InLowStorageOff,
+                    OutMiddleGoal,
+                    OutMiddleGoalOff,
+                    OutLowGoal,
+                    OutLowGoalOff,
+                    OutTopGoal,
+                    OutTopGoalOff
+                  };
 
   InOutMechanism(Motor& L1, Motor& L2, Motor& R1, Motor& T1)
   : m_outerTowerMiddleMotor(L1), m_innerTowerMiddleTopMotor(L2), m_innerTowerLowerMotor(R1),m_topGoalMotor(T1) {}
@@ -168,15 +177,44 @@ public:
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(-127);
         break;
+      case Mode::InTopStorageOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        break;
       case Mode::InLowStorage:
         m_outerTowerMiddleMotor.move(127);
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(127);
         break;
+      case Mode::InLowStorageOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        break;
       case Mode::OutMiddleGoal:
+        m_outerTowerMiddleMotor.move(127);
+        m_innerTowerMiddleTopMotor.move(-127);
+        m_innerTowerLowerMotor.move(-127);
+        break;
+      case Mode::OutMiddleGoalOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        break;
       case Mode::OutLowGoal:
+        m_outerTowerMiddleMotor.move(-127);
+        m_innerTowerLowerMotor.move(-127);
+        break;
+        case Mode::OutLowGoalOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        break;
       case Mode::OutTopGoal:
         m_topGoalMotor.move(127);
+        break;
+      case Mode::OutTopGoalOff:
+        m_topGoalMotor.move(0);
         break;
       default:
         m_outerTowerMiddleMotor.move(0);
@@ -267,67 +305,88 @@ void opcontrol() {
       lcd::set_text(3, piston_extended ? "Piston: EXTENDED" : "Piston: RETRACTED");
     }
 
-    // InOutMechanism Mode selection
-    if (master.get_digital_new_press(BTN_INTOPSTORAGE)) {
+// InOutMechanism Mode selection
+    if (master.get_digital(BTN_INTOPSTORAGE)) {
       inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
       lcd::set_text(2, "InOutMechanism Mode: InTopStorage");
     }
-    if (master.get_digital_new_press(BTN_INLOWSTORAGE)) {
+    if (master.get_digital_new_release(BTN_INTOPSTORAGE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+      lcd::set_text(2, "InTopStorage: Off");
+    }
+    
+    if (master.get_digital(BTN_INLOWSTORAGE)) {
       inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
       lcd::set_text(2, "InOutMechanism Mode: InLowStorage");
     }
-    if (master.get_digital_new_press(BTN_OUTMIDGOAL)) {
+    if (master.get_digital_new_release(BTN_INLOWSTORAGE)) {
+      // Stop all top storage motors
+      inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+      lcd::set_text(2, "InLowStorage: off");
+    }
+
+    if (master.get_digital(BTN_OUTMIDGOAL)) {
       inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutMiddleGoal");
     }
-    if (master.get_digital_new_press(BTN_OUTLOWGOAL)) {
+
+    if (master.get_digital_new_release(BTN_OUTMIDGOAL)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
+      lcd::set_text(2, "OutMiddleGoal: off");
+    }
+
+    if (master.get_digital(BTN_OUTLOWGOAL)) {
       inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutLowGoal");
     }
+    if (master.get_digital_new_release(BTN_OUTLOWGOAL)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+      lcd::set_text(2, "OutLowGoal off");
+    }
+
+    if (master.get_digital(BTN_TOPOUTTAKE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+      lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
+    }
+    
+    if (master.get_digital_new_release(BTN_TOPOUTTAKE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+      lcd::set_text(2, "OutTopGoal: Off");
+    }
+
     if (master.get_digital_new_press(BTN_InOutMechanism_OFF)) {
       inOutMech.set_mode(InOutMechanism::Mode::Off);
       lcd::set_text(2, "InOutMechanism Mode: Off");
     }
-    // No code defined yet for outtake
-    if (master.get_digital_new_press(BTN_TOPOUTTAKE)) {
-      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-      lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
-    }
-/*
-    // Drive input
-    int LY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
-    int RY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
-    int LX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
-
-    LY = expoCmd(applyDeadband(LY));
-    RY = expoCmd(applyDeadband(RY));
-    LX = expoCmd(applyDeadband(LX));
-
-    if (kArcadeDrive) driveArcade(LY, LX);
-    else              driveTank(LY, RY);
-*/
+    
     // ema + slew limit version:
 
     // -------- Smooth Drive Input --------
     int rawLY = master.get_analog(E_CONTROLLER_ANALOG_LEFT_Y);
     int rawLX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
+    int rawRY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
 
     // Deadband → expo → EMA (order matters; EMA last for smoothness)
     int LY = expoCmd(applyDeadband(rawLY));
     int LX = expoCmd(applyDeadband(rawLX));
+    int RY = expoCmd(applyDeadband(RY));
+
     LY = emaY.step(LY);
     LX = emaX.step(LX);
+    RY = emaY.step(RY);
 
     // Curvature: reduce turn as forward speed rises (keeps high-speed stable)
     double speedFrac = std::min(1.0, std::abs(LY) / 127.0);
     int scaledTurn = (int)std::round(LX * (1.0 - kTurnAtSpeedScale * speedFrac));
-
-    // Mix to tank and apply per-side slew
-    int l_tgt, r_tgt; arcadeToTank(LY, scaledTurn, l_tgt, r_tgt);
-    int l_cmd = leftSlew.step(l_tgt);
-    int r_cmd = rightSlew.step(r_tgt);
-
-    driveTank(l_cmd, r_cmd);
+    // Drive
+    if (kArcadeDrive) 
+      driveArcade(LY, scaledTurn, leftSlew, rightSlew);
+    else {
+      int l_cmd = leftSlew.step(LY);
+      int r_cmd = rightSlew.step(RY);
+      driveTank(l_cmd, r_cmd);
+    }
+    
     delay(kDriveLoopMs);
   }
 }
