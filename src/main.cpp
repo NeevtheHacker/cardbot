@@ -12,7 +12,7 @@ constexpr int8_t R_BACK_PORT  = 9;
 
 // Odometry ports
 constexpr int8_t IMU_PORT = 16;
-constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
+// constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
 // constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
 
 // InOutMechanism ports
@@ -47,15 +47,16 @@ constexpr int kInOutMechanismLoopMs = 10;
 constexpr int kInOutMechanismCmd = 127;
 constexpr int kHoldCmd   = 18;
 
-// Buttons
+// Controller button mapping
 constexpr auto BTN_BRAKE_HOLD   = E_CONTROLLER_DIGITAL_A;
 constexpr auto BTN_BRAKE_COAST  = E_CONTROLLER_DIGITAL_B;
 constexpr auto BTN_INTOPSTORAGE = E_CONTROLLER_DIGITAL_R1;
 constexpr auto BTN_INLOWSTORAGE = E_CONTROLLER_DIGITAL_R2;
-constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L1;
-constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_L2;
+constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_L1;
+constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L2;
+constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_Y;
 constexpr auto BTN_InOutMechanism_OFF   = E_CONTROLLER_DIGITAL_X;
-constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_Y;
+
 
 // Pneumatic toggle button
 constexpr auto BTN_PISTON_TOGGLE = E_CONTROLLER_DIGITAL_RIGHT;
@@ -71,7 +72,6 @@ MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::Mo
 Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerLowerMotor(INNER_TOWER_LOWER_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
-
 
 // Outtake Motor
 Motor topOutTakeMotor(TOP_OUTTAKE_PORT, pros::v5::MotorGears::blue, pros::v5::MotorUnits::rotations);
@@ -109,7 +109,18 @@ static inline void driveArcade(int throttle, int turn) {
 
 class InOutMechanism {
 public:
-  enum class Mode { Off, InTopStorage, InLowStorage, OutMiddleGoal, OutLowGoal, OutTopGoal};
+  enum class Mode { Off, 
+                    InTopStorage,
+                    InTopStorageOff,
+                    InLowStorage,
+                    InLowStorageOff,
+                    OutMiddleGoal,
+                    OutMiddleGoalOff,
+                    OutLowGoal,
+                    OutLowGoalOff,
+                    OutTopGoal,
+                    OutTopGoalOff
+                  };
 
   InOutMechanism(Motor& L1, Motor& L2, Motor& R1, Motor& T1)
   : m_outerTowerMiddleMotor(L1), m_innerTowerMiddleTopMotor(L2), m_innerTowerLowerMotor(R1),m_topGoalMotor(T1) {}
@@ -130,18 +141,46 @@ public:
         break;
       case Mode::InTopStorage:
         m_outerTowerMiddleMotor.move(127);
-        m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(-127);
+        break;
+      case Mode::InTopStorageOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
         break;
       case Mode::InLowStorage:
         m_outerTowerMiddleMotor.move(127);
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(127);
         break;
+      case Mode::InLowStorageOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        break;
       case Mode::OutMiddleGoal:
+        m_outerTowerMiddleMotor.move(127);
+        m_innerTowerMiddleTopMotor.move(-127);
+        m_innerTowerLowerMotor.move(-127);
+        break;
+      case Mode::OutMiddleGoalOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        break;
       case Mode::OutLowGoal:
+        m_outerTowerMiddleMotor.move(-127);
+        m_innerTowerLowerMotor.move(-127);
+        break;
+        case Mode::OutLowGoalOff:
+        m_outerTowerMiddleMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        break;
       case Mode::OutTopGoal:
         m_topGoalMotor.move(127);
+        break;
+      case Mode::OutTopGoalOff:
+        m_topGoalMotor.move(0);
         break;
       default:
         m_outerTowerMiddleMotor.move(0);
@@ -169,7 +208,6 @@ void InOutMechanismTaskFn(void*) {
   while (true) { inOutMech.update(); delay(kInOutMechanismLoopMs); }
 }
 Task InOutMechanismTask(InOutMechanismTaskFn, nullptr, "InOutMechanism_task");
-
 // Lemlib setup
 
 // drivetrain settings
@@ -228,16 +266,16 @@ void initialize() {
   lcd::set_text(1, "Drive+Intake+Outtake+Piston Ready");
   chassis.calibrate(); // calibrate sensors
     // print position to brain screen
-    pros::Task screen_task([&]() {
-        while (true) {
-            // print robot location to the brain screen
-            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            // delay to save resources
-            pros::delay(20);
-        }
-    });
+    // pros::Task screen_task([&]() {
+    //     while (true) {
+    //         // print robot location to the brain screen
+    //         pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+    //         pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+    //         pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+    //         // delay to save resources
+    //         pros::delay(20);
+    //     }
+    // });
 
   leftDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
   rightDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
@@ -259,20 +297,11 @@ void competition_initialize() {}
 
 // --------- Autonomous (example) ---------
 void autonomous() {
-  // InOutMechanism in, drive forward, then hold
-  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  driveTank(80, 80);
-  delay(1000);
-
-  driveTank(0, 0);
-  inOutMech.set_mode(InOutMechanism::Mode::Off);
-  delay(200);
-
-  // small turn example
-  driveTank(60, -60);
-  delay(300);
-  driveTank(0, 0);
+  chassis.setPose(0, 0, 0);
+  // turn to face heading 90 with a very long timeout
+  chassis.turnToHeading(90, 100000);
 }
+  
 
 // --------- Driver Control ---------
 void opcontrol() {
@@ -293,34 +322,57 @@ void opcontrol() {
     if (master.get_digital_new_press(BTN_PISTON_TOGGLE)) {
       piston_extended = !piston_extended;
       piston.set_value(piston_extended);  // true = extend, false = retract
-      lcd::set_text(3, piston_extended ? "Piston: EXTENDED" : "Piston: RETRACTED");
     }
 
-    // InOutMechanism Mode selection
-    if (master.get_digital_new_press(BTN_INTOPSTORAGE)) {
+// InOutMechanism Mode selection
+    if (master.get_digital(BTN_INTOPSTORAGE)) {
       inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
       lcd::set_text(2, "InOutMechanism Mode: InTopStorage");
     }
-    if (master.get_digital_new_press(BTN_INLOWSTORAGE)) {
+    if (master.get_digital_new_release(BTN_INTOPSTORAGE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+      lcd::set_text(2, "InTopStorage: Off");
+    }
+    if (master.get_digital(BTN_INLOWSTORAGE)) {
       inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
       lcd::set_text(2, "InOutMechanism Mode: InLowStorage");
     }
-    if (master.get_digital_new_press(BTN_OUTMIDGOAL)) {
+    if (master.get_digital_new_release(BTN_INLOWSTORAGE)) {
+      // Stop all top storage motors
+      inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+      lcd::set_text(2, "InLowStorage: off");
+    }
+
+    if (master.get_digital(BTN_OUTMIDGOAL)) {
       inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutMiddleGoal");
     }
-    if (master.get_digital_new_press(BTN_OUTLOWGOAL)) {
+
+    if (master.get_digital_new_release(BTN_OUTMIDGOAL)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
+      lcd::set_text(2, "OutMiddleGoal: off");
+    }
+    if (master.get_digital(BTN_OUTLOWGOAL)) {
       inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutLowGoal");
     }
+    if (master.get_digital_new_release(BTN_OUTLOWGOAL)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+      lcd::set_text(2, "OutLowGoal off");
+    }
+    if (master.get_digital(BTN_TOPOUTTAKE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+      lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
+    }
+    
+    if (master.get_digital_new_release(BTN_TOPOUTTAKE)) {
+      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+      lcd::set_text(2, "OutTopGoal: Off");
+    }
+
     if (master.get_digital_new_press(BTN_InOutMechanism_OFF)) {
       inOutMech.set_mode(InOutMechanism::Mode::Off);
       lcd::set_text(2, "InOutMechanism Mode: Off");
-    }
-    // No code defined yet for outtake
-    if (master.get_digital_new_press(BTN_TOPOUTTAKE)) {
-      inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-      lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
     }
 
     // Drive input
@@ -339,11 +391,12 @@ void opcontrol() {
 */
   // Lemlib options
   // move the robot
-    chassis.arcade(leftY, leftX); // Single Stick Arcade
+    // chassis.arcade(leftY, leftX); // Single Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
-    // chassis.arcade(leftY, leftX, false, 0.75); // prioritize steering slightly
+    chassis.arcade(leftY, leftX, false, 0.9); // prioritize steering slightly
     // chassis.curvature(leftY, leftX); // Single stick curvature
+    // chassis.curvature(leftY,rightX);
     delay(kDriveLoopMs);
   }
 }
