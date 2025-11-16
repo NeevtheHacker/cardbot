@@ -5,6 +5,9 @@
 using namespace pros;
 
 // ==================== CONFIG (EDIT THESE) ====================
+//Auton Path 
+ASSET(testPath_txt)
+//Drive Motor Ports
 constexpr int8_t L_FRONT_PORT = -20;
 constexpr int8_t L_BACK_PORT  = -19;
 constexpr int8_t R_FRONT_PORT = 7;
@@ -12,8 +15,8 @@ constexpr int8_t R_BACK_PORT  = 9;
 
 // Odometry ports
 constexpr int8_t IMU_PORT = 16;
-// constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 8;
-// constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 16;
+constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 1;
+constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 2;
 
 // InOutMechanism ports
 // Clockwise Direction
@@ -215,16 +218,26 @@ lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
                               &rightDrive, // right motor group
                               TRACK_WIDTH,
                               lemlib::Omniwheel::NEW_4, // using new 4" omnis
-                              400, // drivetrain rpm is 360
+                              300, // drivetrain rpm is 300 (double check)
                               2 // horizontal drift is 2 (for now)
 );
 
 // odometry settings
 
 pros::Imu imu(IMU_PORT);
-lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, set to null
+// horizontal tracking wheel encoder
+pros::Rotation horizontal_encoder(HORIZONTAL_ROTATION_SENSOR_PORT);
+// horizontal tracking wheel
+lemlib::TrackingWheel horizontal_tracking_wheel(&horizontal_encoder, lemlib::Omniwheel::NEW_275, -5.75);
+
+// vertical tracking wheel encoder
+pros::Rotation vertical_encoder(VERTICAL_ROTATION_SENSOR_PORT);
+// vertical tracking wheel
+lemlib::TrackingWheel vertical_tracking_wheel(&vertical_encoder, lemlib::Omniwheel::NEW_275, 0);
+
+lemlib::OdomSensors sensors(&vertical_tracking_wheel, // vertical tracking wheel 1
                             nullptr, // vertical tracking wheel 2, set to nullptr as we are using IMEs
-                            nullptr, // horizontal tracking wheel 1
+                            &horizontal_tracking_wheel, // horizontal tracking wheel 1
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu // inertial sensor
 );
@@ -295,11 +308,12 @@ void initialize() {
 void disabled() {}
 void competition_initialize() {}
 
-// --------- Autonomous (example) ---------
+// --------- ============================AUTONOMOUS==================== ---------
 void autonomous() {
   chassis.setPose(0, 0, 0);
-  // turn to face heading 90 with a very long timeout
-  chassis.turnToHeading(90, 100000);
+  // lookahead distance: 15 inches
+  // timeout: 2000 ms
+  chassis.follow(testPath_txt, 15, 2000);
 }
   
 
@@ -394,7 +408,7 @@ void opcontrol() {
     // chassis.arcade(leftY, leftX); // Single Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
-    chassis.arcade(leftY, leftX, false, 0.9); // prioritize steering slightly
+    chassis.arcade(leftY, leftX, false, 0.7); // prioritize steering slightly
     // chassis.curvature(leftY, leftX); // Single stick curvature
     // chassis.curvature(leftY,rightX);
     delay(kDriveLoopMs);
