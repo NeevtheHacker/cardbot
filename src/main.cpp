@@ -11,16 +11,17 @@ ASSET(testPath_txt)
 constexpr int8_t L_FRONT_PORT = -20;
 constexpr int8_t L_BACK_PORT  = -19;
 constexpr int8_t R_FRONT_PORT = 7;
-constexpr int8_t R_BACK_PORT  = 9;
+constexpr int8_t R_BACK_PORT  = 10;
 
 // Odometry ports
 constexpr int8_t IMU_PORT = 16;
-constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 1;
+constexpr int8_t VERTICAL_ROTATION_SENSOR_PORT = 3;
 constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 2;
 
 // InOutMechanism ports
 // Clockwise Direction
 constexpr int8_t OUTER_TOWER_MIDDLE_InOutMechanism_PORT      = -12;
+constexpr int8_t OUTER_TOWER_TOP_InOutMechanism_PORT         = -15;
 constexpr int8_t INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT  = -11;
 constexpr int8_t INNER_TOWER_LOWER_InOutMechanism_PORT       = 13;
 
@@ -51,14 +52,18 @@ constexpr int kInOutMechanismCmd = 127;
 constexpr int kHoldCmd   = 18;
 
 // Controller button mapping
-constexpr auto BTN_BRAKE_HOLD   = E_CONTROLLER_DIGITAL_A;
-constexpr auto BTN_BRAKE_COAST  = E_CONTROLLER_DIGITAL_B;
-constexpr auto BTN_INTOPSTORAGE = E_CONTROLLER_DIGITAL_R1;
-constexpr auto BTN_INLOWSTORAGE = E_CONTROLLER_DIGITAL_R2;
-constexpr auto BTN_TOPOUTTAKE   = E_CONTROLLER_DIGITAL_L1;
-constexpr auto BTN_OUTMIDGOAL   = E_CONTROLLER_DIGITAL_L2;
-constexpr auto BTN_OUTLOWGOAL   = E_CONTROLLER_DIGITAL_Y;
-constexpr auto BTN_InOutMechanism_OFF   = E_CONTROLLER_DIGITAL_X;
+constexpr auto BTN_BRAKE_HOLD         = E_CONTROLLER_DIGITAL_A;
+constexpr auto BTN_BRAKE_COAST        = E_CONTROLLER_DIGITAL_UP;
+constexpr auto BTN_INTOPSTORAGE       = E_CONTROLLER_DIGITAL_R1;
+constexpr auto BTN_INLOWSTORAGE       = E_CONTROLLER_DIGITAL_R2;
+constexpr auto BTN_TOPOUTTAKE         = E_CONTROLLER_DIGITAL_L1;
+constexpr auto BTN_OUTMIDGOAL         = E_CONTROLLER_DIGITAL_L2;
+constexpr auto BTN_OUTLOWGOAL         = E_CONTROLLER_DIGITAL_Y;
+constexpr auto BTN_midToTopStorage    = E_CONTROLLER_DIGITAL_LEFT;
+constexpr auto BTN_InOutMechanism_OFF = E_CONTROLLER_DIGITAL_X;
+constexpr auto BTN_DriveReverse = E_CONTROLLER_DIGITAL_B;
+
+
 
 
 // Pneumatic toggle button
@@ -70,8 +75,10 @@ Controller master(E_CONTROLLER_MASTER);
 // Drive train motor objects
 MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
 MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+bool driveReversed = false;
 
 // InOutMechanism motors
+Motor outerTowerTopMotor(OUTER_TOWER_TOP_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor outerTowerMiddleMotor(OUTER_TOWER_MIDDLE_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerMiddleTopMotor(INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
 Motor innerTowerLowerMotor(INNER_TOWER_LOWER_InOutMechanism_PORT, pros::v5::MotorGears::green, pros::v5::MotorUnits::rotations);
@@ -122,11 +129,20 @@ public:
                     OutLowGoal,
                     OutLowGoalOff,
                     OutTopGoal,
-                    OutTopGoalOff
+                    OutTopGoalOff,
+                    MidToTopStorage,
+                    MidToTopStorageOff
                   };
 
-  InOutMechanism(Motor& L1, Motor& L2, Motor& R1, Motor& T1)
-  : m_outerTowerMiddleMotor(L1), m_innerTowerMiddleTopMotor(L2), m_innerTowerLowerMotor(R1),m_topGoalMotor(T1) {}
+  InOutMechanism(Motor& L1,
+                 Motor& L2,
+                 Motor& R1,
+                 Motor& R2,
+                 Motor& T1) : m_outerTowerMiddleMotor(L1),
+                              m_innerTowerMiddleTopMotor(L2),
+                              m_innerTowerLowerMotor(R1),
+                              m_outerTowerTopMotor(R2),
+                              m_topGoalMotor(T1) {}
 
   void set_mode(Mode m) { mode_ = m; }
   Mode mode() const { return mode_; }
@@ -134,20 +150,26 @@ public:
   // Call from a background task
   void update() {
     // TODO - ramp speeds instead of instant full voltage
-    // TODO - Should we have the motors on 'hold' as opposed to on 'coast' to ensure that objects remain in place?
+    // TODO - Should we have the motors on 'hold' as 
+    // opposed to on 'coast' to ensure that objects
+    // remain in place?
+
     switch (mode_) {
       case Mode::Off:
         m_outerTowerMiddleMotor.move(0);
         m_innerTowerMiddleTopMotor.move(0);
         m_innerTowerLowerMotor.move(0);
+        m_outerTowerTopMotor.move(0);
         m_topGoalMotor.move(0);
         break;
       case Mode::InTopStorage:
         m_outerTowerMiddleMotor.move(127);
+        m_outerTowerTopMotor.move(127);
         m_innerTowerMiddleTopMotor.move(-127);
         break;
       case Mode::InTopStorageOff:
         m_outerTowerMiddleMotor.move(0);
+        m_outerTowerTopMotor.move(0);
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(0);
         break;
@@ -163,11 +185,13 @@ public:
         break;
       case Mode::OutMiddleGoal:
         m_outerTowerMiddleMotor.move(127);
+        m_outerTowerTopMotor.move(-127);
         m_innerTowerMiddleTopMotor.move(-127);
         m_innerTowerLowerMotor.move(-127);
         break;
       case Mode::OutMiddleGoalOff:
         m_outerTowerMiddleMotor.move(0);
+        m_outerTowerTopMotor.move(0);
         m_innerTowerMiddleTopMotor.move(0);
         m_innerTowerLowerMotor.move(0);
         break;
@@ -185,10 +209,24 @@ public:
       case Mode::OutTopGoalOff:
         m_topGoalMotor.move(0);
         break;
-      default:
+      case Mode::MidToTopStorage:
+        m_outerTowerMiddleMotor.move(127);
+        m_outerTowerTopMotor.move(127);
+        m_innerTowerMiddleTopMotor.move(-127);
+        m_innerTowerLowerMotor.move(-127);
+        break;
+      case Mode::MidToTopStorageOff:
         m_outerTowerMiddleMotor.move(0);
+        m_outerTowerTopMotor.move(0);
         m_innerTowerMiddleTopMotor.move(0);
         m_innerTowerLowerMotor.move(0);
+        break;
+      default:
+        m_outerTowerMiddleMotor.move(0);
+        m_outerTowerTopMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
+        m_innerTowerLowerMotor.move(0);
+        m_topGoalMotor.move(0);
         break;
     }
   }
@@ -197,18 +235,27 @@ private:
   Motor& m_outerTowerMiddleMotor;
   Motor& m_innerTowerMiddleTopMotor;
   Motor& m_innerTowerLowerMotor;
+  Motor& m_outerTowerTopMotor;
   Motor& m_topGoalMotor;
   Mode mode_ = Mode::Off;
 };
 
-InOutMechanism inOutMech(outerTowerMiddleMotor, innerTowerMiddleTopMotor, innerTowerLowerMotor, topOutTakeMotor);
+InOutMechanism inOutMech(outerTowerMiddleMotor, 
+                         innerTowerMiddleTopMotor,
+                         innerTowerLowerMotor,
+                         outerTowerTopMotor,
+                         topOutTakeMotor);
 
 void InOutMechanismTaskFn(void*) {
   outerTowerMiddleMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerMiddleTopMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerLowerMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  outerTowerTopMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   topOutTakeMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
-  while (true) { inOutMech.update(); delay(kInOutMechanismLoopMs); }
+  while (true) { 
+    inOutMech.update(); 
+    delay(kInOutMechanismLoopMs);
+  }
 }
 Task InOutMechanismTask(InOutMechanismTaskFn, nullptr, "InOutMechanism_task");
 // Lemlib setup
@@ -228,7 +275,7 @@ pros::Imu imu(IMU_PORT);
 // horizontal tracking wheel encoder
 pros::Rotation horizontal_encoder(HORIZONTAL_ROTATION_SENSOR_PORT);
 // horizontal tracking wheel
-lemlib::TrackingWheel horizontal_tracking_wheel(&horizontal_encoder, lemlib::Omniwheel::NEW_275, -5.75);
+lemlib::TrackingWheel horizontal_tracking_wheel(&horizontal_encoder, lemlib::Omniwheel::NEW_275, 3.5);
 
 // vertical tracking wheel encoder
 pros::Rotation vertical_encoder(VERTICAL_ROTATION_SENSOR_PORT);
@@ -243,7 +290,7 @@ lemlib::OdomSensors sensors(&vertical_tracking_wheel, // vertical tracking wheel
 );
 
 // lateral PID controller
-lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
+/*lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
                                               0, // integral gain (kI)
                                               3, // derivative gain (kD)
                                               3, // anti windup
@@ -253,9 +300,21 @@ lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
                                               500, // large error range timeout, in milliseconds
                                               20 // maximum acceleration (slew)
 );
+*/
+
+lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              3, // derivative gain (kD)
+                                              0, // anti windup
+                                              0, // small error range, in inches
+                                              0, // small error range timeout, in milliseconds
+                                              0, // large error range, in inches
+                                              0, // large error range timeout, in milliseconds
+                                              0 // maximum acceleration (slew)
+);
 
 // angular PID controller
-lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
+lemlib::ControllerSettings angular_controller(5, // proportional gain (kP)
                                               0, // integral gain (kI)
                                               10, // derivative gain (kD)
                                               3, // anti windup
@@ -265,6 +324,17 @@ lemlib::ControllerSettings angular_controller(2, // proportional gain (kP)
                                               500, // large error range timeout, in milliseconds
                                               0 // maximum acceleration (slew)
 );
+
+/*lemlib::ControllerSettings angular_controller(5, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              10, // derivative gain (kD)
+                                              0, // anti windup
+                                              0, // small error range, in inches
+                                              0, // small error range timeout, in milliseconds
+                                              0, // large error range, in inches
+                                              0, // large error range timeout, in milliseconds
+                                              0 // maximum acceleration (slew)
+);*/
 
 // create the chassis
 lemlib::Chassis chassis(drivetrain, // drivetrain settings
@@ -276,19 +346,8 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
 // ==================== PROS LIFECYCLE ====================
 void initialize() {
   lcd::initialize();
-  lcd::set_text(1, "Drive+Intake+Outtake+Piston Ready");
+  //lcd::set_text(1, "Drive+Intake+Outtake+Piston Ready");
   chassis.calibrate(); // calibrate sensors
-    // print position to brain screen
-    // pros::Task screen_task([&]() {
-    //     while (true) {
-    //         // print robot location to the brain screen
-    //         pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
-    //         pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
-    //         pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-    //         // delay to save resources
-    //         pros::delay(20);
-    //     }
-    // });
 
   leftDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
   rightDrive.set_brake_mode(E_MOTOR_BRAKE_COAST);
@@ -299,10 +358,22 @@ void initialize() {
   outerTowerMiddleMotor.tare_position();
   innerTowerMiddleTopMotor.tare_position();
   innerTowerLowerMotor.tare_position();
+  outerTowerTopMotor.tare_position();
 
   // Pneumatic default: retracted
   piston.set_value(false);
   piston_extended = false;
+  // to debug for autonomous
+  pros::Task screenTask([&]() {
+    while (true) {
+    pros::lcd::print(0, "x: %f", chassis.getPose().x);
+    pros::lcd::print(1, "y: %f", chassis.getPose().y);
+    pros::lcd::print(2, "Theta: %f", chassis.getPose().theta);
+    // lemlib::telemetrySink()->info("chassis pose {}", chassis.getPose());
+    pros::delay(50);
+    }
+
+  });
 }
 
 void disabled() {}
@@ -313,14 +384,34 @@ void autonomous() {
   chassis.setPose(0, 0, 0);
   // lookahead distance: 15 inches
   // timeout: 2000 ms
-  chassis.follow(testPath_txt, 15, 2000);
+  // chassis.moveToPoint(0,10,15000);
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+  chassis.moveToPose(0,31,0,4000,{.maxSpeed = 40});
+  chassis.waitUntilDone();
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  chassis.turnToHeading(-70, 4000);
+  chassis.moveToPoint(-9,33, 4000,{.maxSpeed = 30});
+  chassis.waitUntilDone();
+  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
+  pros::delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+  chassis.moveToPoint(28,8, 4000,{.forwards=false});
+  chassis.turnToHeading(155, 5000);
+  
+  // turn on intake
+  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  
+  //chassis.moveToPose(0,15,0,15000);
 }
   
 
 // --------- Driver Control ---------
 void opcontrol() {
+  
   while (true) {
-    // Brake mode quick toggle
+  
+    // Drive Mods
+      //brake mode quick toggle
     if (master.get_digital_new_press(BTN_BRAKE_HOLD)) {
       leftDrive.set_brake_mode_all(MotorBrake::hold);
       rightDrive.set_brake_mode_all(MotorBrake::hold);
@@ -330,6 +421,11 @@ void opcontrol() {
       leftDrive.set_brake_mode_all(MotorBrake::coast);
       rightDrive.set_brake_mode_all(MotorBrake::coast);
       lcd::set_text(2, "Drive Brake: COAST");
+    }
+      //Drive reverse quick toggle
+    if (master.get_digital_new_press(BTN_DriveReverse)) {
+    driveReversed = !driveReversed;
+    lcd::set_text(3, driveReversed ? "Drive: REVERSED" : "Drive: NORMAL");
     }
 
     // ----- Pneumatics: toggle extend/retract -----
@@ -374,6 +470,14 @@ void opcontrol() {
       inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
       lcd::set_text(2, "OutLowGoal off");
     }
+    if (master.get_digital(BTN_midToTopStorage)) {
+      inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
+      lcd::set_text(2, "InOutMechanism Mode: MidToTopStorage");
+    }
+    if (master.get_digital_new_release(BTN_midToTopStorage)) {
+      inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorageOff);
+      lcd::set_text(2, "MidToTopStorage off");
+    }
     if (master.get_digital(BTN_TOPOUTTAKE)) {
       inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
       lcd::set_text(2, "InOutMechanism Mode: OutTopGoal");
@@ -394,6 +498,11 @@ void opcontrol() {
     int leftX = master.get_analog(E_CONTROLLER_ANALOG_LEFT_X);
     int rightY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
     int rightX = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
+    if (driveReversed) {
+    
+    leftY = -leftX;   // invert forward/back
+    leftX = -leftY;   // invert turning
+    }
     
 /*
     LY = expoCmd(applyDeadband(LY));
