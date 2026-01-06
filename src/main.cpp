@@ -8,10 +8,12 @@ using namespace pros;
 //Auton Path 
 ASSET(testPath_txt)
 //Drive Motor Ports
-constexpr int8_t L_FRONT_PORT = -20;
-constexpr int8_t L_BACK_PORT  = -19;
-constexpr int8_t R_FRONT_PORT = 7;
-constexpr int8_t R_BACK_PORT  = 10;
+constexpr int8_t L_FRONT_PORT       = -20;
+constexpr int8_t L_BACK_PORT        = -19;
+constexpr int8_t L_BACK_STACK_PORT  = 18;
+constexpr int8_t R_FRONT_PORT       = 10;
+constexpr int8_t R_BACK_PORT       = 9;
+constexpr int8_t R_BACK_STACK_PORT = -8;
 
 // Odometry ports
 constexpr int8_t IMU_PORT = 16;
@@ -20,7 +22,7 @@ constexpr int8_t HORIZONTAL_ROTATION_SENSOR_PORT = 2;
 
 // InOutMechanism ports
 // Clockwise Direction
-constexpr int8_t OUTER_TOWER_MIDDLE_InOutMechanism_PORT      = -15;
+constexpr int8_t OUTER_TOWER_MIDDLE_InOutMechanism_PORT      = -12;
 constexpr int8_t INNER_TOWER_MIDDLE_TOP_InOutMechanism_PORT  = -11;
 constexpr int8_t INNER_TOWER_LOWER_InOutMechanism_PORT       = 13;
 
@@ -29,6 +31,7 @@ constexpr int8_t TOP_OUTTAKE_PORT = -14;
 
 // Pneumatics (3-wire/ADI) port
 constexpr char PISTON_PORT = 'H';  // Change to your 3-wire port (A..H)
+constexpr char PISTON_PORT_DESCORE = 'F';  // Change to your 3-wire port (A..H)
 
 // Drive style
 constexpr bool kArcadeDrive = true;
@@ -67,13 +70,14 @@ constexpr auto BTN_DriveReverse = E_CONTROLLER_DIGITAL_B;
 
 // Pneumatic toggle button
 constexpr auto BTN_PISTON_TOGGLE = E_CONTROLLER_DIGITAL_RIGHT;
+constexpr auto BTN_PISTON_TOGGLE_DESCORE = E_CONTROLLER_DIGITAL_DOWN;
 
 // ==================== DEVICES ====================
 Controller master(E_CONTROLLER_MASTER);
 
 // Drive train motor objects
-MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
-MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+MotorGroup leftDrive({L_FRONT_PORT, L_BACK_PORT, L_BACK_STACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+MotorGroup rightDrive({R_FRONT_PORT, R_BACK_PORT, R_BACK_STACK_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
 bool driveReversed = false;
 
 // InOutMechanism motors
@@ -87,6 +91,8 @@ Motor topOutTakeMotor(TOP_OUTTAKE_PORT, pros::v5::MotorGears::green, pros::v5::M
 // ==================== PNEUMATICS ====================
 pros::adi::Pneumatics piston(PISTON_PORT, false); // false = retracted at startup
 static bool piston_extended = false;
+pros::adi::Pneumatics piston_descore(PISTON_PORT_DESCORE, false); // false = retracted at startup
+static bool piston_extended_descore = false;
 
 // ==================== HELPERS ====================
 static inline int clamp127(int v) { return std::max(-127, std::min(127, v)); }
@@ -311,10 +317,10 @@ lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
 );
 
 // angular PID controller
-lemlib::ControllerSettings angular_controller(5, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              10, // derivative gain (kD)
-                                              3, // anti windup
+lemlib::ControllerSettings angular_controller(4, // proportional gain (kP)
+                                              1, // integral gain (kI)
+                                              25, // derivative gain (kD)
+                                              1.187, // anti windup
                                               1, // small error range, in degrees
                                               100, // small error range timeout, in milliseconds
                                               3, // large error range, in degrees
@@ -358,6 +364,8 @@ void initialize() {
   // Pneumatic default: retracted
   piston.set_value(false);
   piston_extended = false;
+  piston_descore.set_value(false);
+  piston_extended_descore = false;
   // to debug for autonomous
   pros::Task screenTask([&]() {
     while (true) {
@@ -377,25 +385,64 @@ void competition_initialize() {}
 // --------- ============================AUTONOMOUS==================== ---------
 void autonomous() {
   chassis.setPose(0, 0, 0);
-  // //mid storage 
+  // lookahead distance: 15 inches
+  // timeout: 2000 ms
+  // chassis.moveToPoint(0,10,15000);
+
+//Skills
+  chassis.moveToPose(0,13,0,4000,{.maxSpeed=40});
+  chassis.waitUntilDone();
+  chassis.moveToPose(0,-6,0,4000,{.forwards=false, .maxSpeed=100});
+// //mid 
+//   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+//   chassis.moveToPose(0,29,0,4000,{.maxSpeed = 40});
+//   chassis.waitUntilDone();
+//   inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+//   chassis.turnToHeading(70, 4000);
+//   chassis.moveToPoint(7.5,37.5, 4000,{.maxSpeed = 30});
+//   chassis.waitUntilDone();
+//   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
+//   pros::delay(2000);
+//   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
+//   chassis.moveToPoint(-34.6,21.5, 4000,{.forwards=false, .maxSpeed=30});
+//   chassis.turnToHeading(203, 5000);
+//   piston.set_value(true);
+
+//// low
   // inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  // chassis.moveToPose(0,31,0,4000,{.maxSpeed = 40});
+  // chassis.moveToPose(0,29,0,4000,{.maxSpeed = 40});
   // chassis.waitUntilDone();
   // inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
   // chassis.turnToHeading(-70, 4000);
-  // chassis.moveToPoint(-9,33, 4000,{.maxSpeed = 30});
+  // chassis.moveToPoint(-5.5,35.5, 4000,{.maxSpeed = 30});
   // chassis.waitUntilDone();
+  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
+  // pros::delay(2000);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+  // chassis.moveToPoint(34.6,21.5, 4000,{.forwards=false, .maxSpeed=30});
+  // chassis.turnToHeading(-203, 5000);
+  // piston.set_value(true);
+
+  //chassis.setPose(0, 0, 0);
+  // //mid storage 
+  //inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+  //chassis.moveToPose(0,31,0,4000,{.maxSpeed = 40});
+  //chassis.waitUntilDone();
+  //inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  //chassis.turnToHeading(-70, 4000);
+  //chassis.moveToPoint(-9,33, 4000,{.maxSpeed = 30});
+  //chassis.waitUntilDone();
   // inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
   // pros::delay(2000);
   // inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
-
+/*
   // // lookahead dstance: 15 inches
   // // timeout: 2000 ms
   // // chassis.moveToPoint(0,10,15000);
   //Low storage
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
   //chassis.moveToPose(0,33,0,4000,{.maxSpeed = 40});
-  chassis.moveToPoint(0,30,1000,{.maxSpeed = 50});
+  chassis.moveToPoint(0,30,1000,{.maxSpeed = 40});
   // chassis.moveToPose(6,29,24,4000,{.maxSpeed = 40});
   // chassis.waitUntilDone();
   pros::delay(500);
@@ -407,10 +454,10 @@ void autonomous() {
   // chassis.moveToPoint(-1,36, 4000,{.maxSpeed = 30});
   chassis.waitUntilDone();
   inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
-  pros::delay(1000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
-  chassis.moveToPoint(35,13,1000,{.forwards=false, .maxSpeed=127});
-  chassis.waitUntilDone();
+  //pros::delay(1000);
+  //inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+  //chassis.moveToPoint(35,13,1000,{.forwards=false, .maxSpeed=127});
+  //chassis.waitUntilDone();
   chassis.turnToHeading(-182, 5000);
   //pros::delay(2000);
   
@@ -418,12 +465,15 @@ void autonomous() {
   //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
   
   //chassis.moveToPose(0,15,0,15000);
+  */
 }
   
 
 // --------- Driver Control ---------
 void opcontrol() {
-  
+  chassis.setPose(0, 0, 0);
+  //chassis.turnToHeading(90, 1000);
+  chassis.moveToPoint(0,24,10000);
   while (true) {
     // printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
     // Drive Mods
@@ -448,6 +498,11 @@ void opcontrol() {
     if (master.get_digital_new_press(BTN_PISTON_TOGGLE)) {
       piston_extended = !piston_extended;
       piston.set_value(piston_extended);  // true = extend, false = retract
+    }
+    // ----- Pneumatics: toggle extend/retract -----
+    if (master.get_digital_new_press(BTN_PISTON_TOGGLE_DESCORE)) {
+      piston_extended_descore = !piston_extended_descore;
+      piston_descore.set_value(piston_extended_descore);  // true = extend, false = retract
     }
 
 // InOutMechanism Mode selection
@@ -517,7 +572,7 @@ void opcontrol() {
     if (driveReversed) {
     
     leftY = -leftY;   // invert forward/back
-    leftX = -leftX;   // invert turning
+  
     }
     
 /*
@@ -533,8 +588,8 @@ void opcontrol() {
     // chassis.arcade(leftY, leftX); // Single Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
-    chassis.arcade(leftY, leftX, false,0); // prioritize steering slightly
-    // chassis.curvature(leftY, leftX); // Single stick curvature
+    chassis.arcade(leftY, leftX, false,0.3); // prioritize steering slightly
+    //chassis.curvature(leftY, leftX); // Single stick curvature
     // chassis.curvature(leftY,rightX);
     // printf("Opcontrol state before delay: %d\n", pros::Task::current().get_state());
     delay(kDriveLoopMs);
