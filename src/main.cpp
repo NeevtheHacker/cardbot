@@ -250,7 +250,7 @@ InOutMechanism inOutMech(outerTowerMiddleMotor,
 void InOutMechanismTaskFn(void*) {
   
   // Print the state for debugging
-  printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
+  //printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
   outerTowerMiddleMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerMiddleTopMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
   innerTowerLowerMotor.set_brake_mode(E_MOTOR_BRAKE_COAST);
@@ -304,40 +304,54 @@ lemlib::OdomSensors sensors(&vertical_tracking_wheel, // vertical tracking wheel
                                               20 // maximum acceleration (slew)
 );
 */
-
-lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              3, // derivative gain (kD)
-                                              0, // anti windup
-                                              0, // small error range, in inches
-                                              0, // small error range timeout, in milliseconds
-                                              0, // large error range, in inches
-                                              0, // large error range timeout, in milliseconds
-                                              0 // maximum acceleration (slew)
-);
-
 // angular PID controller
-lemlib::ControllerSettings angular_controller(4, // proportional gain (kP)
-                                              1, // integral gain (kI)
-                                              25, // derivative gain (kD)
+// good baseline that works with 60% speed 
+/*lemlib::ControllerSettings angular_controller(4.5, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              28, // derivative gain (kD)
                                               1.187, // anti windup
-                                              1, // small error range, in degrees
+                                              .75, // small error range, in degrees
                                               100, // small error range timeout, in milliseconds
                                               3, // large error range, in degrees
                                               500, // large error range timeout, in milliseconds
                                               0 // maximum acceleration (slew)
 );
 
-/*lemlib::ControllerSettings angular_controller(5, // proportional gain (kP)
+lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)
                                               0, // integral gain (kI)
-                                              10, // derivative gain (kD)
+                                              4, // derivative gain (kD)
+                                              3, // anti windup
+                                              1, // small error range, in inches
+                                              100, // small error range timeout, in milliseconds
+                                              3, // large error range, in inches
+                                              500, // large error range timeout, in milliseconds
+                                              35 // maximum acceleration (slew)
+);
+*/
+
+// angular PID controller
+
+lemlib::ControllerSettings angular_controller(5.5, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              43.79, // derivative gain (kD)
                                               0, // anti windup
-                                              0, // small error range, in inches
-                                              0, // small error range timeout, in milliseconds
-                                              0, // large error range, in inches
-                                              0, // large error range timeout, in milliseconds
+                                              .75, // small error range, in degrees
+                                              100, // small error range timeout, in milliseconds
+                                              3, // large error range, in degrees
+                                              500, // large error range timeout, in milliseconds
                                               0 // maximum acceleration (slew)
-);*/
+);
+
+lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)
+                                              0, // integral gain (kI)
+                                              4, // derivative gain (kD)
+                                              3, // anti windup
+                                              1, // small error range, in inches
+                                              500, // small error range timeout, in milliseconds
+                                              1, // large error range, in inches
+                                              500, // large error range timeout, in milliseconds
+                                              35 // maximum acceleration (slew)
+);
 
 // create the chassis
 lemlib::Chassis chassis(drivetrain, // drivetrain settings
@@ -390,9 +404,40 @@ void autonomous() {
   // chassis.moveToPoint(0,10,15000);
 
 //Skills
-  chassis.moveToPose(0,13,0,4000,{.maxSpeed=40});
-  chassis.waitUntilDone();
-  chassis.moveToPose(0,-6,0,4000,{.forwards=false, .maxSpeed=100});
+  chassis.moveToPose(0,33,0,4000,{.maxSpeed=60});
+  chassis.turnToHeading(90, 1000);
+  delay(1000);
+  piston.set_value(true);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  delay(1000);
+  float currentX = chassis.getPose().x;
+  float currentY = chassis.getPose().y;
+  chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
+  delay(2000);
+  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
+  delay(2000);
+  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
+  delay(5000);
+  
+  chassis.moveToPoint(-12,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(5000);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  chassis.moveToPoint(27.59,5.255,2000,{.forwards=false,.minSpeed=30});
+
+  
+  // -9.8, 30.086
+  // -0 
+
+
+
+  // chassis.moveToPose(0,-,0,4000,{.forwards=false, .maxSpeed=100});
 // //mid 
 //   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
 //   chassis.moveToPose(0,29,0,4000,{.maxSpeed = 40});
@@ -471,9 +516,13 @@ void autonomous() {
 
 // --------- Driver Control ---------
 void opcontrol() {
-  chassis.setPose(0, 0, 0);
+  //chassis.setPose(0, 0, 0);
   //chassis.turnToHeading(90, 1000);
-  chassis.moveToPoint(0,24,10000);
+  //delay(2000);
+  //chassis.moveToPoint(0,72,10000, {.maxSpeed=60});
+  //chassis.moveToPoint(0,48,10000);
+  //chassis.turnToHeading(0, 1000);
+  autonomous();
   while (true) {
     // printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
     // Drive Mods
