@@ -203,7 +203,7 @@ public:
         break;
       case Mode::OutLowGoal:
         m_outerTowerMiddleMotor.move(-127);
-        m_innerTowerLowerMotor.move(-127);
+        m_innerTowerLowerMotor.move(-85);
         break;
         case Mode::OutLowGoalOff:
         m_outerTowerMiddleMotor.move(0);
@@ -216,8 +216,8 @@ public:
         m_topGoalMotor.move(0);
         break;
       case Mode::MidToTopStorage:
-        m_outerTowerMiddleMotor.move(127);
-        m_innerTowerMiddleTopMotor.move(-127);
+        // m_outerTowerMiddleMotor.move(127);
+        // m_innerTowerMiddleTopMotor.move(-127);
         m_innerTowerLowerMotor.move(127);
         break;
       case Mode::MidToTopStorageOff:
@@ -395,15 +395,153 @@ void initialize() {
 
 void disabled() {}
 void competition_initialize() {}
-
-// --------- ============================AUTONOMOUS==================== ---------
-void autonomous() {
+void rightAuton () {
   chassis.setPose(0, 0, 0);
-  // lookahead distance: 15 inches
-  // timeout: 2000 ms
-  // chassis.moveToPoint(0,10,15000);
+  // get balls near middle goal
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+  chassis.turnToHeading(-74,4000);
+  chassis.moveToPose(-30,7,-74,4000,{.maxSpeed = 40});
+  chassis.waitUntilDone();
+  chassis.turnToHeading(-137.5, 4000);
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  delay(100);
+  inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
+  chassis.moveToPoint(-35,-2.4, 4000,{.maxSpeed = 30});
+  // chassis.waitUntilDone();
+  // // score low goal
+  inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorageOff);
+  delay(100);
+  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
+  pros::delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+  // // go to match loader 
+  chassis.moveToPoint(-10,23, 4000,{.forwards=false,.maxSpeed = 80});
+  pros::delay(500);
+  chassis.turnToHeading(-273, 4000);
+  /*
+  // // load
+  // piston.set_value(true);
+  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  // // delay(1000);
+  //
+  //float currentX = chassis.getPose().x;
+  //float currentY = chassis.getPose().y;
+  //chassis.moveToPoint(8.36,currentX,3000,{.minSpeed=40});
+  // delay(2000);
+  // for(int i=0; i<=2; ++i) {
+  // chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  // chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
+  // chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
+  // delay(2000);
+  //}
 
-//Skills
+  //Move backwards to long goal
+  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(3000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  // We need a wiggle here ? manual?
+  delay(2000);
+  
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  //
+  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  // delay(1000);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+
+  // score long goal
+  */
+}
+void leftAuton() {
+  chassis.setPose(0, 0, 0);
+  // get balls near middle goal
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+  chassis.turnToHeading(74,4000);
+  // chassis.moveToPose(26.7,5.5,74,4000,{.maxSpeed = 40});
+  chassis.moveToPose(30,7,74,4000,{.maxSpeed = 40});
+  chassis.waitUntilDone();
+  delay(100);
+  chassis.turnToHeading(137.5, 4000);
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  delay(100);
+  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
+  chassis.moveToPoint(35, -2.4, 4000,{.maxSpeed = 30});
+  chassis.waitUntilDone();
+  // score mid  goal
+  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorageOff);
+  // delay(100);
+
+  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
+  pros::delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
+  // // go to match loader 
+  chassis.moveToPoint(6,28,4000,{.forwards=false,.maxSpeed = 80});
+  pros::delay(500);
+  chassis.turnToHeading(273, 4000);
+  // // load
+  // piston.set_value(true);
+  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  // // delay(1000);
+  // /*
+  //float currentX = chassis.getPose().x;
+  //float currentY = chassis.getPose().y;
+  //chassis.moveToPoint(8.36,currentX,3000,{.minSpeed=40});
+  // delay(2000);
+  // for(int i=0; i<=2; ++i) {
+  // chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  // chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
+  // chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
+  // delay(2000);
+  //}
+  /*
+  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
+  delay(2000);
+  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
+  delay(2000);
+
+
+  //Move backwards to long goal
+  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(3000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  // We need a wiggle here ? manual?
+  delay(2000);
+  
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  //
+  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  // delay(1000);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+
+  // score long goal
+  */
+
+}
+// Run this for sure 20 points on skills
+void skills20 () {
+  // starting positions is the middle of left back wheel aligned
+  // with the boundary of the parking zone color and the black connector
+  // Go forward
+  chassis.setPose(0, 0, 0);
+  chassis.arcade(30,0);
+  // chassis.waitUntil(10);
+  delay(1000);
+  // Go backward
+  chassis.arcade(-60,0);
+  delay(3000);
+  chassis.arcade(0,0);
+}
+
+void skills () {
+  
+  chassis.setPose(0, 0, 0);
   chassis.moveToPose(0,33,0,4000,{.maxSpeed=60});
   chassis.turnToHeading(90, 1000);
   delay(1000);
@@ -415,114 +553,65 @@ void autonomous() {
   float currentY = chassis.getPose().y;
   chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
   delay(2000);
+  for(int i=0; i<=3; ++i) {
   chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(2000);
-  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
+  //chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
   chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(5000);
-  
-  chassis.moveToPoint(-12,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
-  delay(1000);
+  delay(2000);
+  }
+
+  //Move backwards to long goal
+  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
+  delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(5000);
+  delay(3000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  // We need a wiggle here ? manual?
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
   delay(1000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  chassis.moveToPoint(27.59,5.255,2000,{.forwards=false,.minSpeed=30});
-
+  // retreat piston
+  piston.set_value(false);
+  // Go back to pivot  position
+  chassis.moveToPoint(currentX,currentY,2000,{.minSpeed=30});
+  // Turn heading
+  chassis.turnToHeading(0, 1000);
+  // Go back atleast 1 feet
+  chassis.moveToPoint(currentX,currentY - 12, 2000,{.forwards=false,.minSpeed=30});
+  // Turn heading
+  chassis.turnToHeading(-90, 1000);
+  delay(1000);
   
-  // -9.8, 30.086
-  // -0 
-
-
-
-  // chassis.moveToPose(0,-,0,4000,{.forwards=false, .maxSpeed=100});
-// //mid 
-//   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-//   chassis.moveToPose(0,29,0,4000,{.maxSpeed = 40});
-//   chassis.waitUntilDone();
-//   inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
-//   chassis.turnToHeading(70, 4000);
-//   chassis.moveToPoint(7.5,37.5, 4000,{.maxSpeed = 30});
-//   chassis.waitUntilDone();
-//   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
-//   pros::delay(2000);
-//   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
-//   chassis.moveToPoint(-34.6,21.5, 4000,{.forwards=false, .maxSpeed=30});
-//   chassis.turnToHeading(203, 5000);
-//   piston.set_value(true);
-
-//// low
-  // inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  // chassis.moveToPose(0,29,0,4000,{.maxSpeed = 40});
-  // chassis.waitUntilDone();
-  // inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
-  // chassis.turnToHeading(-70, 4000);
-  // chassis.moveToPoint(-5.5,35.5, 4000,{.maxSpeed = 30});
-  // chassis.waitUntilDone();
-  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
-  // pros::delay(2000);
-  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
-  // chassis.moveToPoint(34.6,21.5, 4000,{.forwards=false, .maxSpeed=30});
-  // chassis.turnToHeading(-203, 5000);
-  // piston.set_value(true);
-
-  //chassis.setPose(0, 0, 0);
-  // //mid storage 
-  //inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  //chassis.moveToPose(0,31,0,4000,{.maxSpeed = 40});
-  //chassis.waitUntilDone();
-  //inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
-  //chassis.turnToHeading(-70, 4000);
-  //chassis.moveToPoint(-9,33, 4000,{.maxSpeed = 30});
-  //chassis.waitUntilDone();
-  // inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
-  // pros::delay(2000);
-  // inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
-/*
-  // // lookahead dstance: 15 inches
-  // // timeout: 2000 ms
-  // // chassis.moveToPoint(0,10,15000);
-  //Low storage
-  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  //chassis.moveToPose(0,33,0,4000,{.maxSpeed = 40});
-  chassis.moveToPoint(0,30,1000,{.maxSpeed = 40});
-  // chassis.moveToPose(6,29,24,4000,{.maxSpeed = 40});
-  // chassis.waitUntilDone();
-  pros::delay(500);
-  inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
-  //chassis.moveToPose(0,30,0,4000,{.maxSpeed = 40});
-  chassis.turnToHeading(-70, 1000);
-  // chassis.turnToHeading(-44, 4000);
-  chassis.moveToPoint(-9,32,1000,{.maxSpeed = 30});
-  // chassis.moveToPoint(-1,36, 4000,{.maxSpeed = 30});
-  chassis.waitUntilDone();
-  inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
-  //pros::delay(1000);
-  //inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
-  //chassis.moveToPoint(35,13,1000,{.forwards=false, .maxSpeed=127});
-  //chassis.waitUntilDone();
-  chassis.turnToHeading(-182, 5000);
-  //pros::delay(2000);
-  
-  // turn on intake
-  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
-  
-  //chassis.moveToPose(0,15,0,15000);
-  */
+  chassis.moveToPoint(16,11, 2000,{.forwards=false,.maxSpeed=60,.minSpeed=30});
+  delay(1000);
+  chassis.turnToHeading(0, 1000);
+  delay(2000);
+  // try to get closer to the wall
+  chassis.tank(-50,0);
+  //chassis.waitUntil()
+  delay(500);
+  chassis.tank(0,-50);
+  delay(500);
+  // Now go into parking
+  chassis.arcade(-80,0);
+  // chassis.waitUntil(12);
+  delay(2000);
+  chassis.arcade(0,0);
+}
+// --------- ============================AUTONOMOUS==================== ---------
+void autonomous() {
+  // skills();
+  rightAuton();
+  // skills20();
+  // leftAuton();
 }
   
 
 // --------- Driver Control ---------
 void opcontrol() {
-  //chassis.setPose(0, 0, 0);
-  //chassis.turnToHeading(90, 1000);
-  //delay(2000);
-  //chassis.moveToPoint(0,72,10000, {.maxSpeed=60});
-  //chassis.moveToPoint(0,48,10000);
-  //chassis.turnToHeading(0, 1000);
-  autonomous();
   while (true) {
     // printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
     // Drive Mods
