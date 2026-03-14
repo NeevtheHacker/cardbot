@@ -6,7 +6,12 @@ using namespace pros;
 
 // ==================== CONFIG (EDIT THESE) ====================
 //Auton Path 
-ASSET(testPath_txt)
+ASSET(AutonRunRightRedLGCluster_txt);
+ASSET(backtomatchload_txt);
+ASSET(Intomatchloaderfinal_txt);
+ASSET(ToLonggoalRightBlue_txt);
+ASSET(testPath_txt);
+
 //Drive Motor Ports
 constexpr int8_t L_FRONT_PORT       = -20;
 constexpr int8_t L_BACK_PORT        = -19;
@@ -173,7 +178,7 @@ public:
         break;
       case Mode::InTopStorage:
         m_outerTowerMiddleMotor.move(127);
-        m_innerTowerLowerMotor.move(20);
+        m_innerTowerLowerMotor.move(15);
         m_innerTowerMiddleTopMotor.move(-127);
         break;
       case Mode::InTopStorageOff:
@@ -182,11 +187,13 @@ public:
         m_innerTowerMiddleTopMotor.move(0);
         break;
       case Mode::InLowStorage:
+        m_topGoalMotor.move(10);
         m_outerTowerMiddleMotor.move(127);
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(127);
         break;
       case Mode::InLowStorageOff:
+        m_topGoalMotor.move(0);
         m_outerTowerMiddleMotor.move(0);
         m_innerTowerLowerMotor.move(0);
         m_innerTowerMiddleTopMotor.move(0);
@@ -203,17 +210,21 @@ public:
         break;
       case Mode::OutLowGoal:
         m_outerTowerMiddleMotor.move(-127);
+        m_innerTowerMiddleTopMotor.move(-127);
         m_innerTowerLowerMotor.move(-85);
         break;
         case Mode::OutLowGoalOff:
         m_outerTowerMiddleMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
         m_innerTowerLowerMotor.move(0);
         break;
       case Mode::OutTopGoal:
         m_topGoalMotor.move(-127);
+        m_innerTowerMiddleTopMotor.move(-127);
         break;
       case Mode::OutTopGoalOff:
         m_topGoalMotor.move(0);
+        m_innerTowerMiddleTopMotor.move(0);
         break;
       case Mode::MidToTopStorage:
         // m_outerTowerMiddleMotor.move(127);
@@ -277,74 +288,51 @@ lemlib::Drivetrain drivetrain(&leftDrive, // left motor group
 pros::Imu imu(IMU_PORT);
 // horizontal tracking wheel encoder
 pros::Rotation horizontal_encoder(HORIZONTAL_ROTATION_SENSOR_PORT);
+
 // horizontal tracking wheel
-lemlib::TrackingWheel horizontal_tracking_wheel(&horizontal_encoder, lemlib::Omniwheel::NEW_275, 3.5);
+lemlib::TrackingWheel horizontal_tracking_wheel(&horizontal_encoder, lemlib::Omniwheel::NEW_2, 4);
 
 // vertical tracking wheel encoder
 pros::Rotation vertical_encoder(VERTICAL_ROTATION_SENSOR_PORT);
+MotorGroup leftDriveEncoder({L_FRONT_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+MotorGroup rightDriveEncoder({R_FRONT_PORT}, v5::MotorGears::green, v5::MotorUnits::rotations);
+
 // vertical tracking wheel
 lemlib::TrackingWheel vertical_tracking_wheel(&vertical_encoder, lemlib::Omniwheel::NEW_275, 0);
+lemlib::TrackingWheel vertical_tracking_wheel_driveRight(&rightDriveEncoder, lemlib::Omniwheel::NEW_4, 6.5, 300);
+lemlib::TrackingWheel vertical_tracking_wheel_driveLeft(&leftDriveEncoder, lemlib::Omniwheel::NEW_4, -6.5, 300);
 
 lemlib::OdomSensors sensors(&vertical_tracking_wheel, // vertical tracking wheel 1
                             nullptr, // vertical tracking wheel 2, set to nullptr as we are using IMEs
                             &horizontal_tracking_wheel, // horizontal tracking wheel 1
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu // inertial sensor
+
+/*
+lemlib::OdomSensors sensors(&vertical_tracking_wheel_driveLeft, // vertical tracking wheel 1
+                            &vertical_tracking_wheel_driveRight, // vertical tracking wheel 2, set to nullptr as we are using IMEs
+                            &horizontal_tracking_wheel, // horizontal tracking wheel 1
+                            nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
+                            &imu // inertial sensor
+*/
 );
 
-// lateral PID controller
-/*lemlib::ControllerSettings lateral_controller(10, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              3, // derivative gain (kD)
-                                              3, // anti windup
-                                              1, // small error range, in inches
-                                              100, // small error range timeout, in milliseconds
-                                              3, // large error range, in inches
-                                              500, // large error range timeout, in milliseconds
-                                              20 // maximum acceleration (slew)
-);
-*/
 // angular PID controller
-// good baseline that works with 60% speed 
-/*lemlib::ControllerSettings angular_controller(4.5, // proportional gain (kP)
+// NN - 
+/*
+lemlib::ControllerSettings angular_controller(5.5, // proportional gain (kP)5.5
                                               0, // integral gain (kI)
-                                              28, // derivative gain (kD)
-                                              1.187, // anti windup
-                                              .75, // small error range, in degrees
+                                              43.79, // derivative gain (kD)51.73
+                                              0, // anti windup3
+                                              .75, // small error range, in degrees 1
                                               100, // small error range timeout, in milliseconds
                                               3, // large error range, in degrees
                                               500, // large error range timeout, in milliseconds
                                               0 // maximum acceleration (slew)
 );
-
-lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)
+lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)16.1
                                               0, // integral gain (kI)
-                                              4, // derivative gain (kD)
-                                              3, // anti windup
-                                              1, // small error range, in inches
-                                              100, // small error range timeout, in milliseconds
-                                              3, // large error range, in inches
-                                              500, // large error range timeout, in milliseconds
-                                              35 // maximum acceleration (slew)
-);
-*/
-
-// angular PID controller
-
-lemlib::ControllerSettings angular_controller(5.5, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              43.79, // derivative gain (kD)
-                                              0, // anti windup
-                                              .75, // small error range, in degrees
-                                              100, // small error range timeout, in milliseconds
-                                              3, // large error range, in degrees
-                                              500, // large error range timeout, in milliseconds
-                                              0 // maximum acceleration (slew)
-);
-
-lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)
-                                              0, // integral gain (kI)
-                                              4, // derivative gain (kD)
+                                              4, // derivative gain (kD)72
                                               3, // anti windup
                                               1, // small error range, in inches
                                               500, // small error range timeout, in milliseconds
@@ -352,6 +340,29 @@ lemlib::ControllerSettings lateral_controller(4.8, // proportional gain (kP)
                                               500, // large error range timeout, in milliseconds
                                               35 // maximum acceleration (slew)
 );
+*/
+/// Neev 
+lemlib::ControllerSettings angular_controller(5.5, // proportional gain (kP)5.5
+                                              0, // integral gain (kI)0
+                                              57.63, // derivative gain (kD)51.73-57.63
+                                              3, // anti windup3
+                                              1, // small error range1
+                                              100, // small error range timeout, in milliseconds100
+                                              3, // large error range, in degrees3
+                                              500, // large error range timeout, in milliseconds500
+                                              0 // maximum acceleration (slew)0
+);
+lemlib::ControllerSettings lateral_controller(7.441, // proportional gain (kP)4.8
+                                              0, // integral gain (kI)
+                                              58.33, // derivative gain (kD)4;72.541
+                                              3, // anti windup
+                                              1, // small error range, in inches
+                                              100, // small error range timeout, in milliseconds
+                                              3, // large error range, in inches
+                                              500, // large error range timeout, in milliseconds
+                                              20 // maximum acceleration (slew)
+);
+
 
 // create the chassis
 lemlib::Chassis chassis(drivetrain, // drivetrain settings
@@ -395,88 +406,106 @@ void initialize() {
 
 void disabled() {}
 void competition_initialize() {}
+
+void purePursuitSkills() {
+  chassis.setPose(-48.356, -18.208, 180);
+  inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
+  chassis.follow(AutonRunRightRedLGCluster_txt, 15, 30000);
+  // inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
+  // delay(2000);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
+  // delay(2000);
+  // chassis.follow(backtomatchload_txt,15,3000,false);
+  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  // chassis.follow(Intomatchloaderfinal_txt,10,1000);
+  // delay(2000);
+  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  // chassis.follow(ToLonggoalRightBlue_txt,10,2000,false);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  // delay(3000);
+  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+}
+
 void rightAuton () {
   chassis.setPose(0, 0, 0);
   // get balls near middle goal
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
   chassis.turnToHeading(-74,4000);
-  chassis.moveToPose(-30,7,-74,4000,{.maxSpeed = 40});
+  // chassis.moveToPose(-30,7,-74,4000,{.maxSpeed = 40});
+  chassis.moveToPose(-35,9,-74,4000,{.maxSpeed = 40});
   chassis.waitUntilDone();
-  chassis.turnToHeading(-137.5, 4000);
+  delay(1000);
+  
+  chassis.turnToHeading(-144.5, 4000);
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
   delay(100);
-  inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
-  chassis.moveToPoint(-35,-2.4, 4000,{.maxSpeed = 30});
-  // chassis.waitUntilDone();
-  // // score low goal
-  inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorageOff);
-  delay(100);
+  chassis.moveToPoint(-37,4, 4000,{.maxSpeed = 30});
+  chassis.waitUntilDone();
+  pros::delay(1000);
   inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
   pros::delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
-  // // go to match loader 
   chassis.moveToPoint(-10,23, 4000,{.forwards=false,.maxSpeed = 80});
-  pros::delay(500);
-  chassis.turnToHeading(-273, 4000);
-  /*
-  // // load
-  // piston.set_value(true);
-  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
-  // // delay(1000);
-  //
-  //float currentX = chassis.getPose().x;
-  //float currentY = chassis.getPose().y;
-  //chassis.moveToPoint(8.36,currentX,3000,{.minSpeed=40});
-  // delay(2000);
-  // for(int i=0; i<=2; ++i) {
-  // chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  // chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
-  // chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  // delay(2000);
-  //}
-
-  //Move backwards to long goal
-  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
-  delay(2000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(3000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  // We need a wiggle here ? manual?
-  delay(2000);
-  
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(2000);
-  //
-  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
-  // delay(1000);
-  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-
-  // score long goal
-  */
+  // pros::delay(500);
+  // chassis.turnToHeading(-273, 4000);
 }
+
 void leftAuton() {
   chassis.setPose(0, 0, 0);
   // get balls near middle goal
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  chassis.turnToHeading(74,4000);
+  chassis.turnToHeading(74,1000);
   // chassis.moveToPose(26.7,5.5,74,4000,{.maxSpeed = 40});
-  chassis.moveToPose(30,7,74,4000,{.maxSpeed = 40});
-  chassis.waitUntilDone();
+  chassis.moveToPose(29,8,74,4000,{.maxSpeed = 50}, false);
   delay(100);
-  chassis.turnToHeading(137.5, 4000);
+  chassis.turnToHeading(140, 2000);
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  piston.set_value(true);
+  chassis.moveToPoint(34.5, .2, 2000,{.maxSpeed = 50}, false);
   delay(100);
-  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
-  chassis.moveToPoint(35, -2.4, 4000,{.maxSpeed = 30});
-  chassis.waitUntilDone();
-  // score mid  goal
-  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorageOff);
-  // delay(100);
-
   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
   pros::delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
-  // // go to match loader 
+  // Ram the balls in
+  chassis.moveToPoint(37, -1.75,2000,{.maxSpeed = 80}, false);
+  chassis.moveToPose(10, 31, 140, 5000,{.forwards=false,.maxSpeed=50});
+  // Get objects from match loader
+  chassis.turnToHeading(270, 4000);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(-7.3, 32, 2000,{.maxSpeed = 50}, false);
+  delay(1400);
+  chassis.moveToPose(19, 33, 270, 5000,{.forwards=false, .maxSpeed = 50}, false);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  piston.set_value(false);
+  delay(500);
+  // outtake to goal
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  inOutMech.set_mode(InOutMechanism::Mode::Off);
+  // chassis.moveToPoint(-10.3, chassis.getPose().y, 5000,{.maxSpeed=50});
+  // chassis.moveToPoint(36, -1, 2000,{.maxSpeed = 50}, false);
+  // go ram inwards to get the
+  // then go bakwards.
+  // inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
+  // delay(100);
+  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
+  /*
+  chassis.moveToPoint(37, -8.5, 4000,{.maxSpeed = 30});
+  chassis.waitUntilDone();
+  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
+  pros::delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
+  pros::delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
+  
+  // go to match loader 
   chassis.moveToPoint(6,28,4000,{.forwards=false,.maxSpeed = 80});
   pros::delay(500);
   chassis.turnToHeading(273, 4000);
@@ -484,6 +513,7 @@ void leftAuton() {
   // piston.set_value(true);
   //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
   // // delay(1000);
+  */
   // /*
   //float currentX = chassis.getPose().x;
   //float currentY = chassis.getPose().y;
@@ -538,35 +568,240 @@ void skills20 () {
   delay(3000);
   chassis.arcade(0,0);
 }
+// ==================== Drive To Point (Heading Locked - Simplified) ====================
+/*
+ * Drives to a point while maintaining a fixed heading.
+ *
+ * targetX, targetY  -> field coordinates (inches)
+ * desiredAngleDeg   -> heading to maintain (degrees)
+ * kP                -> forward proportional gain
+ * maxSpeed          -> max motor command (0-127)
+ * coeff             -> forward scaling multiplier (0-1)
+ * timeoutMs         -> max runtime in ms
+ */
+// void IMUStraightAdvanced(double targetDistance,
+//                          double targetHeading,
+//                          int maxVoltage,
+//                          int timeoutMs)
+// {
+//     // ===== TUNING =====
+//     const double kP_dist = 905.0;     // mV per inch (tune)900
+//     const double kP_ang  = 94.0;      // mV per degree 80
+//     const double kD_ang  = 290.0;     // damping 300
+//     const double kP_x    = 700.0;     // mV per inch of lateral drift
+//     const double kS      = 200.0;     // static friction compensation (mV)
 
-void skills () {
+//     const int loopMs = 10;
+//     const double dt = loopMs / 1000.0;
+
+//     int startTime = pros::millis();
+
+//     vertical_tracking_wheel.reset();
+//     horizontal_tracking_wheel.reset();
+
+//     double lastHeadingError = 0;
+
+//     while (true)
+//     {
+//         if (pros::millis() - startTime > timeoutMs)
+//             break;
+
+//         // ===== DISTANCE =====
+//         double dist = vertical_tracking_wheel.getDistanceTraveled();
+//         double distError = targetDistance - dist;
+
+//         if (fabs(distError) < 0.2)
+//             break;
+
+//         double forwardVoltage = kP_dist * distError;
+
+//         // Clamp forward voltage
+//         if (forwardVoltage > maxVoltage) forwardVoltage = maxVoltage;
+//         if (forwardVoltage < -maxVoltage) forwardVoltage = -maxVoltage;
+
+//         // ===== HEADING ERROR (MANUAL NORMALIZATION) =====
+//         double currentHeading = imu.get_rotation();
+//         double headingError = targetHeading - currentHeading;
+
+//         while (headingError > 180)  headingError -= 360;
+//         while (headingError < -180) headingError += 360;
+
+//         double headingDerivative = (headingError - lastHeadingError) / dt;
+
+//         double imuTurn =
+//             (kP_ang * headingError) +
+//             (kD_ang * headingDerivative);
+
+//         // Static friction compensation
+//         if (headingError > 0)
+//             imuTurn += kS;
+//         else if (headingError < 0)
+//             imuTurn -= kS;
+
+//         lastHeadingError = headingError;
+
+//         // // ===== LATERAL DRIFT CORRECTION =====
+//         // double xDrift = horizontal_tracking_wheel.getDistanceTraveled();
+//         // double xTurn = -kP_x * xDrift;
+
+//         // ===== COMBINE =====
+//         // double totalTurn = imuTurn + xTurn;
+//         // Combine IMU + lateral
+//         double totalTurn = imuTurn;
+
+//         // Scale turn authority based on forward command magnitude
+//         double speedRatio = fabs(forwardVoltage) / maxVoltage;
+
+//         // prevent zeroing out turn completely
+//         if (speedRatio < 0.2)
+//             speedRatio = 0.2;
+
+//         totalTurn *= speedRatio;
+        
+//         double leftVoltage  = forwardVoltage + totalTurn;
+//         double rightVoltage = forwardVoltage - totalTurn;
+
+//         // Clamp final outputs
+//         if (leftVoltage > 12000) leftVoltage = 12000;
+//         if (leftVoltage < -12000) leftVoltage = -12000;
+//         if (rightVoltage > 12000) rightVoltage = 12000;
+//         if (rightVoltage < -12000) rightVoltage = -12000;
+
+//         leftDrive.move_voltage(leftVoltage);
+//         rightDrive.move_voltage(rightVoltage);
+
+//         pros::delay(loopMs);
+//     }
+
+//     leftDrive.move_voltage(0);
+//     rightDrive.move_voltage(0);
+// }
+// // ==================== IMUStraight (Vertical Encoder Version) ====================
+// /*
+//  * Move forward a set distance using vertical tracking wheel
+//  * and IMU heading correction.
+//  *
+//  * Parameters:
+//  *  targetDistance - distance to travel (in inches)
+//  *  targetAngle    - heading in degrees to maintain
+//  *  maxSpeed       - maximum forward speed (0-127)
+//  *  coeff          - heading correction coefficient
+//  *  timeoutMs      - max runtime in ms
+//  */
+// // void IMUStraight(double targetDistance, double targetAngle, int maxSpeed, double coeff, int timeoutMs) {
+
+// //     int startTime = pros::millis();
+// //     int maxPower = 127;
+// //     // Reset tracking wheel distance
+// //     chassis.setPose(0,0,0);   // or verticalEncoder.reset_position();
+    
+// //     while (true) {
+
+// //         // Distance traveled from vertical encoder
+// //         double distanceTraveled = vertical_tracking_wheel.getDistanceTraveled();
+
+// //         // Stop condition
+// //         if (fabs(distanceTraveled) >= fabs(targetDistance) ||
+// //             (pros::millis() - startTime) > timeoutMs)
+// //             break;
+
+// //         // Get IMU heading
+// //         double currentAngle = imu.get_rotation();
+
+// //         // Calculate heading error
+// //         double angleError = targetAngle - currentAngle;
+// //         if (angleError > 180) angleError -= 360;
+// //         if (angleError < -180) angleError += 360;
+// //         std::cout<<angleError<<std::endl;
+
+// //         int correction = clamp127((int)(angleError * coeff));
+        
+// //         int leftPower  = clamp127(maxSpeed + correction);
+// //         int rightPower = clamp127(maxSpeed - correction);
+// //         // int leftVoltage = (forwardSpeed + correction);
+// //         // int rightVoltage = (forwardSpeed - correction);
+
+// //         leftDrive.move(leftPower);
+// //         rightDrive.move(rightPower);
+// //         // leftDrive.move_voltage(clamp127(leftPower)*1000);
+// //         // rightDrive.move_voltage(clamp127(rightPower)*1000);
+
+// //         pros::delay(10);
+// //     }
+
+// //     leftDrive.move(0);
+// //     rightDrive.move(0);
+// // }
+
+void skillsRight () {
   
   chassis.setPose(0, 0, 0);
-  chassis.moveToPose(0,33,0,4000,{.maxSpeed=60});
-  chassis.turnToHeading(90, 1000);
-  delay(1000);
-  piston.set_value(true);
-  delay(1000);
-  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
-  delay(1000);
-  float currentX = chassis.getPose().x;
-  float currentY = chassis.getPose().y;
-  chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(2000);
-  for(int i=0; i<=3; ++i) {
-  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  //chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
-  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(2000);
-  }
 
-  //Move backwards to long goal
-  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
+  chassis.moveToPose(0,33,0,2000,{.maxSpeed=50});
+  chassis.turnToHeading(90, 1000);
+  piston.set_value(true);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(10.3, chassis.getPose().y, 5000,{.maxSpeed=50});
+  delay(3000);
+  chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
+  // same thing again
+  // chassis.moveToPoint(10.3, chassis.getPose().y, 3000,{.maxSpeed=30});
+  // delay(1000);
+  // chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
+  // chassis.moveToPoint(currentX, currentY, 3000,{.forwards=false,.maxSpeed=50});
+  piston.set_value(false);
+  /* 
+// This code goes behind the long goal - 2nd iteration. 
+// This time try to go straigh as opposed to drive back
+
+  chassis.turnToHeading(-45, 2000);
+  // go forward 
+  chassis.moveToPoint(-9.5, 45, 5000,{.maxSpeed=50});
+  delay(10000);
+  // then reset angle to 90 and try to cross 
+  chassis.turnToHeading(-90, 2000);
+  // Cross the long goal
+  delay(10000);
+  // chassis.moveToPoint(-97, 40, 3000,{.forwards=false,.maxSpeed=50});
+  chassis.moveToPose(-97, 40, -90, 10000,{.forwards=false,.maxSpeed=50});
+  // manouevers to score into the other side's long goal
+  // chassis.turnToHeading(180, 1000);
+  // chassis.moveToPoint(-93.5, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
+  // chassis.turnToHeading(270, 1000);
+  // chassis.moveToPoint(-80, 29.5, 3000,{.forwards=false,.maxSpeed=50});
+
+  // now go back tothe loader
+  // go back and score
+*/
+
+/* This code goes behind the long goal - 1st iteration
+  chassis.turnToHeading(135, 1000);
+  // go backwards
+  chassis.moveToPoint(-9.5, 45, 5000,{.forwards=false,.maxSpeed=50});
+  // then reset angle to 90 and try to cross 
+  chassis.turnToHeading(90, 1000);
+  // Cross the long goal
+  delay(1000);
+  // chassis.moveToPoint(-97, 40, 3000,{.forwards=false,.maxSpeed=50});
+  // chassis.moveToPose(-97, 40, 90, 3000,{.forwards=false,.maxSpeed=50}); 
+  // manouevers to score into the other side's long goal
+  chassis.turnToHeading(180, 1000);
+  chassis.moveToPoint(-93.5, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
+  chassis.turnToHeading(270, 1000);
+  chassis.moveToPoint(-80, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
+  // now go back tothe loader
+  // go back and score
+*/
+/*
+  // Move backwards to long goal
+
+  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40});
   delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(3000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   // We need a wiggle here ? manual?
+  
   delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(2000);
@@ -598,21 +833,148 @@ void skills () {
   // Now go into parking
   chassis.arcade(-80,0);
   // chassis.waitUntil(12);
-  delay(2000);
+  delay(1500);
   chassis.arcade(0,0);
+*/
+
+// This code to go in front of goal through middle
+chassis.turnToHeading(225, 2000);
+delay(500);
+chassis.moveToPose(-21.5,9.5,225,3000,{.maxSpeed=50});
+delay(500);
+chassis.turnToHeading(270, 1000);
+delay(500);
+chassis.moveToPose(-96.5,10.5,270, 5000,{.maxSpeed=50});
+delay(500);
+chassis.turnToHeading(180, 1000);
+delay(500);
+chassis.moveToPoint(-96.5,31,5000,{.forwards=false,.maxSpeed=50});
+delay(500);
+chassis.turnToHeading(270, 1000);
+delay(500);
+// chassis.moveToPoint(-86,31,2000,{.forwards=false,.maxSpeed=50});
+chassis.moveToPose(-86,31, 270, 3000,{.forwards=false,.maxSpeed=40});
+// chassis.moveToPoint(chassis.getPose().x+12,chassis.getPose().y,2000,{.forwards=false,.maxSpeed=50});
+// out take 
+delay(500);
+inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+delay(2000);
+inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+delay(500);
+inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+delay(1000);
+inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+// go towards match loader
+// come back to goal and load
+
+/*
+// Test code for moveToPose - this works 
+chassis.moveToPoint(0,18,5000,{.maxSpeed=50});
+chassis.turnToHeading(-90, 1000);
+delay(5000);
+// chassis.moveToPoint(-96.5,10.5,10000,{.maxSpeed=50});
+chassis.moveToPose(-96.5,18,-90,10000,{.maxSpeed=50});
+delay(5000);
+chassis.turnToHeading(-180, 2000);
+chassis.moveToPoint(-96.5,31,5000,{.forwards=false,.maxSpeed=50});
+delay(5000);
+chassis.turnToHeading(-90, 1000);
+delay(5000);
+chassis.moveToPoint(-86, 31, 5000,{.forwards=false,.maxSpeed=50});
+*/
+
+}
+// skills code starting bot to the left
+
+void skillsLeft () {
+  
+  chassis.setPose(0, 0, 0);
+  chassis.moveToPose(0,33,0,2000,{.maxSpeed=50});
+  chassis.turnToHeading(-90, 1000);
+  piston.set_value(true);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(-10.3, chassis.getPose().y, 5000,{.maxSpeed=50});
+  delay(3000);
+  chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
+  piston.set_value(false);
+  delay(500);
+  // This code to go in front of goal through middle
+  chassis.turnToHeading(-225, 5000);
+  delay(500);
+  chassis.moveToPose(21.5,9.5,-225,5000,{.maxSpeed=50});
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  delay(500);
+  chassis.turnToHeading(-270, 2000);
+  delay(500);
+  // 95.6, 10.5
+  chassis.moveToPose(96.5, 10.5, -270, 5000,{.maxSpeed=50});
+  delay(500);
+  // 94.5, 10.05, -180.06
+  chassis.turnToHeading(-180, 1000);
+  delay(500);
+  chassis.moveToPoint(94.75, 36, 5000,{.forwards=false,.maxSpeed=50});
+  delay(500);
+  chassis.turnToHeading(-270, 1000);
+  delay(500);
+  chassis.moveToPose(80.5, 35.5, -270, 3000, {.forwards=false,.maxSpeed=50},false);
+  // out take 
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  // Move towards match loader and get objects
+  
+  piston.set_value(true);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(108, 35.5, 5000,{.maxSpeed=50},false);
+  delay(3000);
+  
+  // Now move back to goal and score
+  chassis.moveToPoint(80.5, 35.5, 5000,{.forwards=false,.maxSpeed=50},false);
+  piston.set_value(false);
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  delay(500);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  inOutMech.set_mode(InOutMechanism::Mode::Off);
+  // come back to parking
+  chassis.moveToPoint(94.75, 36, 5000, {.maxSpeed=50});
+  chassis.turnToHeading(-180, 1000);
+  chassis.moveToPoint(94.75, 10.5, 5000,{.maxSpeed=50});
+  chassis.turnToHeading(-90, 1000);
+  chassis.moveToPose(-10.5, 10.5, -90, 10000,{.maxSpeed=50});
 }
 // --------- ============================AUTONOMOUS==================== ---------
 void autonomous() {
   // skills();
-  rightAuton();
+  // rightAuton();
   // skills20();
-  // leftAuton();
+  // AutonAuton();
 }
   
 
 // --------- Driver Control ---------
 void opcontrol() {
+    leftAuton();
+  // skillsLeft();
+  // skillsRight();
+  // chassis.setPose(0, 0, 0);
+  // chassis.moveToPose(0,10,0,2000,{.maxSpeed=50});
+  // chassis.turnToHeading(90, 1000);
+  // chassis.follow(testPath_txt, 15,5000);
+  // chassis.setPose(-48.356, -18.208, 180);
+  // purePursuitSkills();
+  
   while (true) {
+    
     // printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
     // Drive Mods
     //brake mode quick toggle
@@ -708,10 +1070,14 @@ void opcontrol() {
     int rightY = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_Y);
     int rightX = master.get_analog(E_CONTROLLER_ANALOG_RIGHT_X);
     if (driveReversed) {
-    
-    leftY = -leftY;   // invert forward/back
-  
+      // chassis.moveToPose(0,0,0,10000,{.forwards=false});//odom test
+      // leftY = -leftY;   // invert forward/back
+      if (leftX > 30) leftX = 30; //slow func
+      if (leftX < -30) leftX = -30;
+      if (leftY > 60) leftY = 60;
+      if (leftY < -60) leftY = -60;
     }
+
     
 /*
     LY = expoCmd(applyDeadband(LY));
@@ -725,9 +1091,9 @@ void opcontrol() {
   // move the robot
     // chassis.arcade(leftY, leftX); // Single Stick Arcade
     // chassis.arcade(leftY, rightX); // Double Stick Arcade
-    // chassis.arcade(leftY, rightX); // Double Stick Arcade
-    chassis.arcade(leftY, leftX, false,0.3); // prioritize steering slightly
-    //chassis.curvature(leftY, leftX); // Single stick curvature
+    // chassis.arcade(leftY, rightX, .9); // Double Stick Arcade
+    chassis.arcade(leftY, leftX, false,.9); // prioritize steering slightly main.3
+    // chassis.curvature(leftY, leftX); // Single stick curvature
     // chassis.curvature(leftY,rightX);
     // printf("Opcontrol state before delay: %d\n", pros::Task::current().get_state());
     delay(kDriveLoopMs);

@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "cardbot",
+    "project_name": "RightGameAuton",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -635,7 +635,9 @@
       }
     },
     "upload_options": {
-      "description": "pushback_right_auto"
+      "description": "pushback_cardbot",
+      "slot": 1,
+      "icon": "pros"
     },
     "use_early_access": false
   }
