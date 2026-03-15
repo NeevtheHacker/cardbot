@@ -178,7 +178,7 @@ public:
         break;
       case Mode::InTopStorage:
         m_outerTowerMiddleMotor.move(127);
-        m_innerTowerLowerMotor.move(15);
+        m_innerTowerLowerMotor.move(10);
         m_innerTowerMiddleTopMotor.move(-127);
         break;
       case Mode::InTopStorageOff:
@@ -431,28 +431,48 @@ void rightAuton () {
   chassis.setPose(0, 0, 0);
   // get balls near middle goal
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
-  chassis.turnToHeading(-74,4000);
-  // chassis.moveToPose(-30,7,-74,4000,{.maxSpeed = 40});
-  chassis.moveToPose(-35,9,-74,4000,{.maxSpeed = 40});
-  chassis.waitUntilDone();
-  delay(1000);
-  
-  chassis.turnToHeading(-144.5, 4000);
+  chassis.turnToHeading(-74,1000);
+  // chassis.moveToPose(-35, 9, -74, 4000,{.maxSpeed = 40});
+  chassis.moveToPose(-29, 8, -74, 4000,{.maxSpeed = 50}, false);
+  delay(100);
+  chassis.turnToHeading(-140, 1000);
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
   delay(100);
-  chassis.moveToPoint(-37,4, 4000,{.maxSpeed = 30});
-  chassis.waitUntilDone();
-  pros::delay(1000);
+  chassis.moveToPoint(-34.5, 1, 4000, {.maxSpeed = 80}, false);
+  // chassis.moveToPoint(34.5, .2, 2000, false);
+  pros::delay(100);
   inOutMech.set_mode(InOutMechanism::Mode::OutLowGoal);
-  pros::delay(2000);
+  pros::delay(1000);
   inOutMech.set_mode(InOutMechanism::Mode::OutLowGoalOff);
-  chassis.moveToPoint(-10,23, 4000,{.forwards=false,.maxSpeed = 80});
-  // pros::delay(500);
-  // chassis.turnToHeading(-273, 4000);
+  // chassis.moveToPoint(-10, 23, 4000,{.forwards=false,.maxSpeed = 80});
+
+  // Copied from left !
+  // Go towards space between long goal and match loader 
+
+  // chassis.moveToPose(-10, 31, -140, 5000,{.forwards=false,.maxSpeed=50});
+  chassis.moveToPose(-10, 31, -140, 5000, {.forwards=false,.maxSpeed=80, .minSpeed = 64});
+  
+  // Get objects from match loader
+  chassis.turnToHeading(-270, 4000);
+  piston.set_value(true);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(7.3, 31.4, 2000,{.maxSpeed = 50}, false);
+  delay(1300);
+  chassis.moveToPose(-19, 33, -270, 2000, {.forwards=false, .maxSpeed  = 80}, false);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  piston.set_value(false);
+  // outtake
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(2000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(1000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
+  inOutMech.set_mode(InOutMechanism::Mode::Off);
 }
 
 void leftAuton() {
-  chassis.setPose(0, 0, 0);
+   chassis.setPose(0, 0, 0);
   // get balls near middle goal
   inOutMech.set_mode(InOutMechanism::Mode::InLowStorage);
   chassis.turnToHeading(74,1000);
@@ -468,19 +488,17 @@ void leftAuton() {
   pros::delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
   // Ram the balls in
-  chassis.moveToPoint(37, -1.75,2000,{.maxSpeed = 80}, false);
-  chassis.moveToPose(10, 31, 140, 5000,{.forwards=false,.maxSpeed=50});
+  // chassis.moveToPoint(37, -1.75,2000,{.maxSpeed = 80}, false);
+  chassis.moveToPose(10, 31, 140, 5000,{.forwards=false,.maxSpeed=65});
   // Get objects from match loader
   chassis.turnToHeading(270, 4000);
   inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
   chassis.moveToPoint(-7.3, 32, 2000,{.maxSpeed = 50}, false);
-  delay(1400);
+  delay(1000);
   chassis.moveToPose(19, 33, 270, 5000,{.forwards=false, .maxSpeed = 50}, false);
   inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
   piston.set_value(false);
-  delay(500);
   // outtake to goal
-  delay(500);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
@@ -489,71 +507,8 @@ void leftAuton() {
   delay(1000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   inOutMech.set_mode(InOutMechanism::Mode::Off);
-  // chassis.moveToPoint(-10.3, chassis.getPose().y, 5000,{.maxSpeed=50});
-  // chassis.moveToPoint(36, -1, 2000,{.maxSpeed = 50}, false);
-  // go ram inwards to get the
-  // then go bakwards.
-  // inOutMech.set_mode(InOutMechanism::Mode::InLowStorageOff);
-  // delay(100);
-  // inOutMech.set_mode(InOutMechanism::Mode::MidToTopStorage);
-  /*
-  chassis.moveToPoint(37, -8.5, 4000,{.maxSpeed = 30});
-  chassis.waitUntilDone();
-  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
-  pros::delay(2000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoal);
-  pros::delay(2000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutMiddleGoalOff);
-  
-  // go to match loader 
-  chassis.moveToPoint(6,28,4000,{.forwards=false,.maxSpeed = 80});
-  pros::delay(500);
-  chassis.turnToHeading(273, 4000);
-  // // load
-  // piston.set_value(true);
-  //inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
-  // // delay(1000);
-  */
-  // /*
-  //float currentX = chassis.getPose().x;
-  //float currentY = chassis.getPose().y;
-  //chassis.moveToPoint(8.36,currentX,3000,{.minSpeed=40});
-  // delay(2000);
-  // for(int i=0; i<=2; ++i) {
-  // chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  // chassis.moveToPoint(9.36,chassis.getPose().y,3000,{.minSpeed=40});
-  // chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  // delay(2000);
-  //}
-  /*
-  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(2000);
-  chassis.moveToPoint(currentX,currentY,3000,{.forwards=false,.minSpeed=40});
-  chassis.moveToPoint(10,chassis.getPose().y,3000,{.minSpeed=40});
-  delay(2000);
-
-
-  //Move backwards to long goal
-  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40,.minSpeed=30});
-  delay(2000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(3000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  // We need a wiggle here ? manual?
-  delay(2000);
-  
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(2000);
-  //
-  // inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
-  // delay(1000);
-  // inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-
-  // score long goal
-  */
-
 }
+
 // Run this for sure 20 points on skills
 void skills20 () {
   // starting positions is the middle of left back wheel aligned
@@ -734,155 +689,74 @@ void skills20 () {
 // // }
 
 void skillsRight () {
-  
   chassis.setPose(0, 0, 0);
-
-  chassis.moveToPose(0,33,0,2000,{.maxSpeed=50});
+  chassis.moveToPose(0,33,0, 5000,{.maxSpeed=50});
   chassis.turnToHeading(90, 1000);
   piston.set_value(true);
   inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
   chassis.moveToPoint(10.3, chassis.getPose().y, 5000,{.maxSpeed=50});
-  delay(3000);
+  delay(2000);
   chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
-  // same thing again
-  // chassis.moveToPoint(10.3, chassis.getPose().y, 3000,{.maxSpeed=30});
-  // delay(1000);
-  // chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
-  // chassis.moveToPoint(currentX, currentY, 3000,{.forwards=false,.maxSpeed=50});
   piston.set_value(false);
-  /* 
-// This code goes behind the long goal - 2nd iteration. 
-// This time try to go straigh as opposed to drive back
-
-  chassis.turnToHeading(-45, 2000);
-  // go forward 
-  chassis.moveToPoint(-9.5, 45, 5000,{.maxSpeed=50});
-  delay(10000);
-  // then reset angle to 90 and try to cross 
-  chassis.turnToHeading(-90, 2000);
-  // Cross the long goal
-  delay(10000);
-  // chassis.moveToPoint(-97, 40, 3000,{.forwards=false,.maxSpeed=50});
-  chassis.moveToPose(-97, 40, -90, 10000,{.forwards=false,.maxSpeed=50});
-  // manouevers to score into the other side's long goal
-  // chassis.turnToHeading(180, 1000);
-  // chassis.moveToPoint(-93.5, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
-  // chassis.turnToHeading(270, 1000);
-  // chassis.moveToPoint(-80, 29.5, 3000,{.forwards=false,.maxSpeed=50});
-
-  // now go back tothe loader
-  // go back and score
-*/
-
-/* This code goes behind the long goal - 1st iteration
-  chassis.turnToHeading(135, 1000);
-  // go backwards
-  chassis.moveToPoint(-9.5, 45, 5000,{.forwards=false,.maxSpeed=50});
-  // then reset angle to 90 and try to cross 
-  chassis.turnToHeading(90, 1000);
-  // Cross the long goal
-  delay(1000);
-  // chassis.moveToPoint(-97, 40, 3000,{.forwards=false,.maxSpeed=50});
-  // chassis.moveToPose(-97, 40, 90, 3000,{.forwards=false,.maxSpeed=50}); 
-  // manouevers to score into the other side's long goal
+  // This code to go in front of goal through middle
+  chassis.turnToHeading(225, 5000);
+  delay(500);
+  chassis.moveToPose(-21.5, 9.5, 225, 5000,{.maxSpeed=50});
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+  delay(500);
+  chassis.turnToHeading(270, 2000);
+  delay(500);
+  // 95.6, 10.5
+  chassis.moveToPose(-96.5, 10.5, 270, 5000,{.maxSpeed=50});
+  delay(500);
+  // 94.5, 10.05, -180.06
   chassis.turnToHeading(180, 1000);
-  chassis.moveToPoint(-93.5, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
+  delay(500);
+  chassis.moveToPoint(-94.75, 36, 5000,{.forwards=false,.maxSpeed=50});
+  delay(500);
   chassis.turnToHeading(270, 1000);
-  chassis.moveToPoint(-80, 29.5, 3000,{.forwards=false,.maxSpeed=50}); 
-  // now go back tothe loader
-  // go back and score
-*/
-/*
-  // Move backwards to long goal
-
-  chassis.moveToPoint(-13,30,2000,{.forwards=false,.maxSpeed=40});
-  delay(2000);
+  delay(500);
+  chassis.moveToPose(-79.7, 35.5, 270, 3000, {.forwards=false,.maxSpeed=50},false);
+  // out take 
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(3000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  // We need a wiggle here ? manual?
+  delay(500);
+  // Move towards match loader and get objects
   
-  delay(2000);
+  piston.set_value(true);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  chassis.moveToPoint(-108, 35.5, 5000,{.maxSpeed=50},false);
+  delay(3000);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+
+  // Now move back to goal and score
+  chassis.moveToPoint(-80.5, 35.5, 5000,{.forwards=false,.maxSpeed=50},false);
+  piston.set_value(false);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(2000);
-  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
-  delay(1000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  // retreat piston
-  piston.set_value(false);
-  // Go back to pivot  position
-  chassis.moveToPoint(currentX,currentY,2000,{.minSpeed=30});
-  // Turn heading
-  chassis.turnToHeading(0, 1000);
-  // Go back atleast 1 feet
-  chassis.moveToPoint(currentX,currentY - 12, 2000,{.forwards=false,.minSpeed=30});
-  // Turn heading
-  chassis.turnToHeading(-90, 1000);
-  delay(1000);
-  
-  chassis.moveToPoint(16,11, 2000,{.forwards=false,.maxSpeed=60,.minSpeed=30});
-  delay(1000);
-  chassis.turnToHeading(0, 1000);
+  delay(500);
+  chassis.moveToPose(-94.75, 35.5, 270, 3000, {.maxSpeed=50},false);
+  chassis.turnToHeading(180, 1000);
+  chassis.moveToPose(-92.89, -67.21, 180, 10000,{.maxSpeed=50});
+  // get objects from match loader
+  chassis.turnToHeading(270, 1000);
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
+  piston.set_value(true);
+  chassis.moveToPoint(-105.89, -67.21, 2000,{.maxSpeed=50});
   delay(2000);
-  // try to get closer to the wall
-  chassis.tank(-50,0);
-  //chassis.waitUntil()
+  // come towards goal
+  chassis.moveToPoint(-79.89, -67.21,2000,{.maxSpeed=50});
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
+  delay(3000);
+  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   delay(500);
-  chassis.tank(0,-50);
-  delay(500);
-  // Now go into parking
-  chassis.arcade(-80,0);
-  // chassis.waitUntil(12);
-  delay(1500);
-  chassis.arcade(0,0);
-*/
 
-// This code to go in front of goal through middle
-chassis.turnToHeading(225, 2000);
-delay(500);
-chassis.moveToPose(-21.5,9.5,225,3000,{.maxSpeed=50});
-delay(500);
-chassis.turnToHeading(270, 1000);
-delay(500);
-chassis.moveToPose(-96.5,10.5,270, 5000,{.maxSpeed=50});
-delay(500);
-chassis.turnToHeading(180, 1000);
-delay(500);
-chassis.moveToPoint(-96.5,31,5000,{.forwards=false,.maxSpeed=50});
-delay(500);
-chassis.turnToHeading(270, 1000);
-delay(500);
-// chassis.moveToPoint(-86,31,2000,{.forwards=false,.maxSpeed=50});
-chassis.moveToPose(-86,31, 270, 3000,{.forwards=false,.maxSpeed=40});
-// chassis.moveToPoint(chassis.getPose().x+12,chassis.getPose().y,2000,{.forwards=false,.maxSpeed=50});
-// out take 
-delay(500);
-inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-delay(2000);
-inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-delay(500);
-inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-delay(1000);
-inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-// go towards match loader
-// come back to goal and load
-
-/*
-// Test code for moveToPose - this works 
-chassis.moveToPoint(0,18,5000,{.maxSpeed=50});
-chassis.turnToHeading(-90, 1000);
-delay(5000);
-// chassis.moveToPoint(-96.5,10.5,10000,{.maxSpeed=50});
-chassis.moveToPose(-96.5,18,-90,10000,{.maxSpeed=50});
-delay(5000);
-chassis.turnToHeading(-180, 2000);
-chassis.moveToPoint(-96.5,31,5000,{.forwards=false,.maxSpeed=50});
-delay(5000);
-chassis.turnToHeading(-90, 1000);
-delay(5000);
-chassis.moveToPoint(-86, 31, 5000,{.forwards=false,.maxSpeed=50});
-*/
-
+  // come back to position between loader and long goal
+  chassis.moveToPose(-92.89, -67.21, 180, 1000,{.maxSpeed=50});
+  // // come back to parking
+  // copy code from last skills code / skills 20 code - should be exact
 }
 // skills code starting bot to the left
 
@@ -897,7 +771,6 @@ void skillsLeft () {
   delay(3000);
   chassis.moveToPoint(0, chassis.getPose().y, 5000,{.forwards=false,.maxSpeed=50});
   piston.set_value(false);
-  delay(500);
   // This code to go in front of goal through middle
   chassis.turnToHeading(-225, 5000);
   delay(500);
@@ -916,45 +789,39 @@ void skillsLeft () {
   delay(500);
   chassis.turnToHeading(-270, 1000);
   delay(500);
-  chassis.moveToPose(80.5, 35.5, -270, 3000, {.forwards=false,.maxSpeed=50},false);
+  chassis.moveToPose(79.7, 35.5, -270, 3000, {.forwards=false,.maxSpeed=50},false);
   // out take 
-  delay(500);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(2000);
+  delay(3000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   delay(500);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(1000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   // Move towards match loader and get objects
   
   piston.set_value(true);
   inOutMech.set_mode(InOutMechanism::Mode::InTopStorage);
   chassis.moveToPoint(108, 35.5, 5000,{.maxSpeed=50},false);
   delay(3000);
-  
+  inOutMech.set_mode(InOutMechanism::Mode::InTopStorageOff);
+
   // Now move back to goal and score
   chassis.moveToPoint(80.5, 35.5, 5000,{.forwards=false,.maxSpeed=50},false);
   piston.set_value(false);
-  delay(500);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
   delay(2000);
   inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
   delay(500);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoal);
-  delay(1000);
-  inOutMech.set_mode(InOutMechanism::Mode::OutTopGoalOff);
-  inOutMech.set_mode(InOutMechanism::Mode::Off);
-  // come back to parking
-  chassis.moveToPoint(94.75, 36, 5000, {.maxSpeed=50});
-  chassis.turnToHeading(-180, 1000);
-  chassis.moveToPoint(94.75, 10.5, 5000,{.maxSpeed=50});
-  chassis.turnToHeading(-90, 1000);
-  chassis.moveToPose(-10.5, 10.5, -90, 10000,{.maxSpeed=50});
+  // // come back to parking
+  // chassis.moveToPoint(94.75, 36, 5000, {.maxSpeed=50});
+  // chassis.turnToHeading(-180, 1000);
+  // chassis.moveToPoint(94.75, 10.5, 5000,{.maxSpeed=50});
+  // chassis.turnToHeading(-90, 1000);
+  // chassis.moveToPose(-10.5, 10.5, -90, 10000,{.maxSpeed=50});
 }
 // --------- ============================AUTONOMOUS==================== ---------
 void autonomous() {
   // skills();
+  // skillsLeft();
+  // leftAuton();
   // rightAuton();
   // skills20();
   // AutonAuton();
@@ -963,21 +830,16 @@ void autonomous() {
 
 // --------- Driver Control ---------
 void opcontrol() {
-    leftAuton();
+  // inOutMech.set_mode(InOutMechanism::Mode::Off);
+
+  // leftAuton();
+  // rightAuton();
   // skillsLeft();
-  // skillsRight();
-  // chassis.setPose(0, 0, 0);
-  // chassis.moveToPose(0,10,0,2000,{.maxSpeed=50});
-  // chassis.turnToHeading(90, 1000);
-  // chassis.follow(testPath_txt, 15,5000);
-  // chassis.setPose(-48.356, -18.208, 180);
-  // purePursuitSkills();
+  skillsRight();
+  // skillsLeft();
   
   while (true) {
     
-    // printf("InoutMechanismTask state: %d\n", pros::Task::current().get_state());
-    // Drive Mods
-    //brake mode quick toggle
     if (master.get_digital_new_press(BTN_BRAKE_HOLD)) {
       leftDrive.set_brake_mode_all(MotorBrake::hold);
       rightDrive.set_brake_mode_all(MotorBrake::hold);
