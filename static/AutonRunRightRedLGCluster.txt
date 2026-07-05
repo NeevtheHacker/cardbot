@@ -1,0 +1,32 @@
+-48.356, -18.208, 73.16
+-48.417, -20.207, 69.603
+-48.331, -22.204, 65.854
+-48.02, -24.178, 61.88
+-47.422, -26.084, 57.635
+-46.441, -27.82, 53.059
+-45.026, -29.222, 50.2
+-43.253, -30.125, 58.945
+-41.297, -30.512, 68.277
+-39.3, -30.486, 76.52
+-37.329, -30.151, 82.733
+-35.409, -29.596, 81.38
+-33.542, -28.88, 78.198
+-31.725, -28.047, 74.88
+-29.961, -27.104, 71.408
+-28.239, -26.087, 67.758
+-26.562, -24.998, 63.9
+-24.924, -23.85, 59.793
+-23.322, -22.654, 55.383
+-21.753, -21.413, 50.59
+-20.218, -20.131, 45.292
+-18.716, -18.81, 39.285
+-17.244, -17.457, 32.177
+-15.8, -16.073, 22.965
+-14.328, -14.609, 0
+-14.328, -14.609, 0
+endData
+127
+100
+200
+-48.356, -18.208, -49.665, -37.186, -32.323, -32.932, -14.328, -14.609
+#PATH.JERRYIO-DATA {"appVersion":"0.10.0","format":"LemLib v0.5","gc":{"robotWidth":16,"robotHeight":18,"robotIsHolonomic":false,"showRobot":true,"uol":2.54,"pointDensity":2,"controlMagnetDistance":1.968503937007874,"fieldImage":{"displayName":"V5RC 2026 - Push Back (Skills)","signature":"V5RC-PushBack-Skills-TopDownHighlighted-TileColor66_71","origin":{"__type":"built-in"}},"coordinateSystem":"VEX Gaming Positioning System"},"paths":[{"segments":[{"controls":[{"uid":"dNsoLHM1tv","x":-48.35611521117319,"y":-18.208228243687675,"lock":false,"visible":true,"heading":180,"__type":"end-point"},{"uid":"wevurKfwQf","x":-49.664904315237884,"y":-37.18567025262575,"lock":false,"visible":true,"__type":"control"},{"uid":"af5HuOKoi7","x":-32.32344868638067,"y":-32.93210566441549,"lock":false,"visible":true,"__type":"control"},{"uid":"6cCdzigxwA","x":-14.328,"y":-14.609,"lock":false,"visible":true,"heading":43.287586003715425,"__type":"end-point"}],"speedProfiles":[],"lookaheadKeyframes":[],"uid":"59U4rP65ii"}],"pc":{"speedLimit":{"minLimit":{"value":0,"label":"0"},"maxLimit":{"value":127,"label":"127"},"step":1,"from":20,"to":100},"bentRateApplicableRange":{"minLimit":{"value":0,"label":"0"},"maxLimit":{"value":1,"label":"1"},"step":0.001,"from":0,"to":0.1},"maxDecelerationRate":127},"name":"Path","uid":"V7Ld4gs64b","lock":false,"visible":true}]}
