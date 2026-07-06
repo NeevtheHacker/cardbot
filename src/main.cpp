@@ -835,7 +835,7 @@ void opcontrol() {
   // leftAuton();
   // rightAuton();
   // skillsLeft();
-  skillsRight();
+  // skillsRight();
   // skillsLeft();
   
   while (true) {
